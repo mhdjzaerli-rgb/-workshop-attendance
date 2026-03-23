@@ -346,7 +346,7 @@ td{padding:.6rem .75rem;vertical-align:middle}
   font-size:.95rem;color:var(--muted);pointer-events:none;
 }
 .login-body input[type=text],.login-body input[type=password]{
-  width:100%;padding:.72rem .8rem .72rem 2.4rem;
+  width:100%;padding:.72rem .85rem;
   border:1.5px solid var(--border);border-radius:10px;
   font-family:inherit;font-size:15px;color:var(--text);
   background:var(--bg);outline:none;direction:ltr;text-align:right;
@@ -410,7 +410,6 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <div class="fg">
         <label>اسم المستخدم</label>
         <div class="login-inp-wrap">
-          <span class="inp-icon">👤</span>
           <input type="text" id="loginUser" placeholder="أدخل اسم المستخدم"
             autocomplete="username"
             onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
@@ -419,7 +418,6 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <div class="fg">
         <label>كلمة المرور</label>
         <div class="login-inp-wrap">
-          <span class="inp-icon">🔒</span>
           <input type="password" id="loginPass" placeholder="أدخل كلمة المرور"
             autocomplete="current-password"
             onkeydown="if(event.key==='Enter')doLogin()">
@@ -450,6 +448,7 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <span>🔄</span><span style="font-size:.72rem;color:#93c5fd;font-weight:700">جاري الاتصال...</span>
     </div>
     <span class="hdr-clock" id="clk">00:00</span>
+    <button id="backupBtn" onclick="openModal('backupOverlay')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.85);border-radius:8px;padding:5px 10px;font-size:.72rem;font-family:inherit;font-weight:700;cursor:pointer;display:none;align-items:center;gap:4px;">💾 نسخ</button>
     <button id="logoutBtn" onclick="doLogout()">🚪 خروج</button>
   </div>
 </header>
@@ -784,6 +783,46 @@ td{padding:.6rem .75rem;vertical-align:middle}
     <div class="sheet-footer">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('bulkOverlay')">إلغاء</button>
       <button class="btn btn-primary btn-sm" onclick="saveBulk()">💾 حفظ الكل</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backup & Restore -->
+<div class="overlay" id="backupOverlay" onclick="if(event.target===this)closeModal('backupOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3>💾 النسخ الاحتياطي</h3>
+      <button class="close-btn" onclick="closeModal('backupOverlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <!-- Export -->
+      <div class="card mb1">
+        <div class="card-hd"><h3>📤 تصدير نسخة احتياطية</h3></div>
+        <div class="card-body">
+          <p class="text-xs text-muted mb1">يحفظ جميع بيانات الموظفين وسجلات الدوام في ملف JSON على جهازك.</p>
+          <button class="btn btn-primary btn-w100" onclick="exportBackup()">
+            📥 تنزيل النسخة الاحتياطية
+          </button>
+        </div>
+      </div>
+      <!-- Import -->
+      <div class="card">
+        <div class="card-hd"><h3>📥 استعادة نسخة احتياطية</h3></div>
+        <div class="card-body">
+          <p class="text-xs text-muted mb1">اختر ملف النسخة الاحتياطية (.json) لاستعادة البيانات. <strong style="color:var(--red)">سيتم استبدال البيانات الحالية.</strong></p>
+          <label style="display:block;border:2px dashed var(--border);border-radius:10px;padding:1.2rem;text-align:center;cursor:pointer;transition:border .15s;" id="dropZone"
+            onmouseover="this.style.borderColor='var(--lblue)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:1.8rem;margin-bottom:.4rem">📁</div>
+            <div style="font-size:.82rem;color:var(--muted);font-weight:600">اضغط لاختيار الملف</div>
+            <div style="font-size:.72rem;color:var(--light);margin-top:2px" id="backupFileName">ملفات .json فقط</div>
+            <input type="file" id="backupFileInput" accept=".json" style="display:none" onchange="onBackupFileSelected(event)">
+          </label>
+          <button class="btn btn-danger btn-w100" style="margin-top:.75rem" id="restoreBtn" onclick="restoreBackup()" disabled>
+            ♻️ استعادة البيانات
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1231,11 +1270,9 @@ function saveEmployee(){
   if(editingEmpId){
     const i=employees.findIndex(e=>e.id===editingEmpId);
     if(i!==-1) employees[i]={...employees[i],...data};
-    toast('✅ تم التحديث','ok');
   } else {
     data.id='EMP'+Date.now().toString(36).toUpperCase();
     employees.push(data);
-    toast('✅ تمت الإضافة','ok');
   }
   saveAll(); closeModal('empOverlay'); renderEmployees(); updateAllEmpSelects();
 }
@@ -1343,7 +1380,6 @@ function saveAttendance(){
   const lateMin=status==='present'?calcLateMins(ci,e?e.startTime:WORK_START,e?e.graceMins:0):0;
   const notes=document.getElementById('att_notes').value.trim();
   setRecord(empId,date,{status,checkIn:ci,checkOut:co,lateMin,notes});
-  toast('✅ تم حفظ الحضور','ok');
   closeModal('attOverlay');
   if(currentPage==='attendance') loadAttDate();
   if(currentPage==='dashboard')  renderDashboard();
@@ -1420,7 +1456,6 @@ function saveBulk(){
     const lateMin=status==='present'?calcLateMins(checkIn,e.startTime,e.graceMins):0;
     setRecord(e.id,date,{status,checkIn,checkOut,lateMin,notes:''});
   });
-  toast(`✅ تم حفظ ${employees.filter(e=>e.active!==false).length} موظف`,'ok');
   closeModal('bulkOverlay'); loadAttDate();
   if(currentPage==='dashboard') renderDashboard();
 }
@@ -1696,6 +1731,76 @@ function confirmDel(type,key,msg){
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open')); });
 
 // ══════════════════════════════════════════════
+//  BACKUP & RESTORE
+// ══════════════════════════════════════════════
+function exportBackup(){
+  const data = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    employees,
+    attendance
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const d    = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `backup_duwam_${d}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('📥 تم تنزيل النسخة الاحتياطية','ok');
+}
+
+let _pendingRestoreData = null;
+
+function onBackupFileSelected(e){
+  const file = e.target.files[0];
+  if(!file){ return; }
+  document.getElementById('backupFileName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if(!data.employees || !data.attendance){
+        toast('⚠️ الملف غير صالح','err');
+        document.getElementById('restoreBtn').disabled = true;
+        _pendingRestoreData = null;
+        return;
+      }
+      _pendingRestoreData = data;
+      document.getElementById('restoreBtn').disabled = false;
+      document.getElementById('dropZone').style.borderColor = 'var(--green)';
+    } catch(err){
+      toast('⚠️ تعذّر قراءة الملف','err');
+      document.getElementById('restoreBtn').disabled = true;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function restoreBackup(){
+  if(!_pendingRestoreData){ toast('⚠️ اختر ملفاً أولاً','err'); return; }
+  if(!confirm('سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية. هل أنت متأكد؟')) return;
+  employees  = _pendingRestoreData.employees  || [];
+  attendance = _pendingRestoreData.attendance || {};
+  saveAll();
+  updateAllEmpSelects();
+  renderDashboard();
+  closeModal('backupOverlay');
+  _pendingRestoreData = null;
+  document.getElementById('backupFileName').textContent = 'ملفات .json فقط';
+  document.getElementById('restoreBtn').disabled = true;
+  document.getElementById('dropZone').style.borderColor = 'var(--border)';
+  document.getElementById('backupFileInput').value = '';
+  toast('✅ تمت الاستعادة بنجاح','ok');
+}
+
+// فتح اختيار الملف عند الضغط على منطقة السحب والإفلات
+document.getElementById('dropZone').addEventListener('click', ()=>{
+  document.getElementById('backupFileInput').click();
+});
+
+// ══════════════════════════════════════════════
 //  AUTH — تسجيل الدخول
 // ══════════════════════════════════════════════
 const ADMINS = [
@@ -1721,6 +1826,7 @@ function showApp(){
   const ls = document.getElementById('loginScreen');
   ls.classList.add('hide');
   document.getElementById('logoutBtn').style.display = 'flex';
+  document.getElementById('backupBtn').style.display = 'flex';
   setTimeout(()=>{ ls.style.display='none'; }, 420);
 }
 function showLogin(){
@@ -1728,6 +1834,7 @@ function showLogin(){
   ls.style.display = 'flex';
   ls.classList.remove('hide');
   document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('backupBtn').style.display = 'none';
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
   document.getElementById('loginErrBox').classList.remove('show');
@@ -1799,6 +1906,7 @@ function doLogout(){
   if(checkSession()){
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('logoutBtn').style.display   = 'flex';
+    document.getElementById('backupBtn').style.display   = 'flex';
     updateAllEmpSelects();
     renderDashboard();
     startRealtimeSync();
