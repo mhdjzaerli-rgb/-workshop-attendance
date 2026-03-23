@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="الدوام">
+<meta name="theme-color" content="#0f2b5b">
+<meta name="description" content="نظام إدارة الدوام والحضور">
+<title>نظام الدوام</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* ═══════════════════════ ROOT ═══════════════════════ */
+:root{
+  --bg:#f0f2f7; --white:#fff; --card:#fff; --border:#e2e8f0; --b2:#cbd5e1;
+  --navy:#0f2b5b; --blue:#1d4ed8; --lblue:#3b82f6; --sky:#e8f0fe;
+  --green:#16a34a; --lgreen:#dcfce7; --red:#dc2626; --lred:#fee2e2;
+  --orange:#ea580c; --lorange:#fff7ed; --amber:#d97706; --lamber:#fffbeb;
+  --text:#1e293b; --muted:#64748b; --light:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.08);
+  --shadow2:0 4px 16px rgba(0,0,0,.12);
+  --r:14px;
+  --nav-h:60px;
+  --header-h:56px;
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
+  --safe-top:env(safe-area-inset-top, 0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'IBM Plex Sans Arabic',sans-serif;background:var(--bg);color:var(--text);direction:rtl;
+  display:flex;flex-direction:column;overscroll-behavior:none}
+input,select,button,textarea{font-family:inherit;font-size:16px}/* 16px prevents iOS zoom */
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+
+/* ═══════════════════════ APP SHELL ═══════════════════════ */
+#appHeader{
+  background:var(--navy);
+  height:calc(var(--header-h) + var(--safe-top));
+  padding-top:var(--safe-top);
+  display:flex;align-items:center;justify-content:space-between;
+  padding-right:1rem;padding-left:1rem;
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  box-shadow:0 2px 12px rgba(0,0,0,.2);
+  flex-shrink:0;
+}
+.hdr-title{display:flex;align-items:center;gap:9px}
+.hdr-logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+  display:flex;align-items:center;justify-content:center;font-size:1rem}
+.hdr-name{color:#fff;font-size:.95rem;font-weight:700}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.hdr-clock{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#93c5fd;letter-spacing:.06em}
+
+#appContent{
+  position:fixed;top:calc(var(--header-h) + var(--safe-top));
+  left:0;right:0;
+  bottom:calc(var(--nav-h) + var(--safe-bottom));
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+}
+#bottomNav{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  height:calc(var(--nav-h) + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);
+  background:#fff;border-top:1px solid var(--border);
+  display:flex;align-items:stretch;
+  box-shadow:0 -4px 20px rgba(0,0,0,.08);
+}
+.bnav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;border:none;background:transparent;color:var(--light);
+  font-size:.6rem;font-weight:600;padding:.3rem .2rem;
+  transition:color .15s;position:relative;
+}
+.bnav-item .bni{font-size:1.25rem;line-height:1;transition:transform .2s}
+.bnav-item.active{color:var(--blue)}
+.bnav-item.active .bni{transform:scale(1.15)}
+.bnav-item.active::before{
+  content:'';position:absolute;top:0;left:20%;right:20%;height:2px;
+  background:var(--blue);border-radius:0 0 4px 4px;
+}
+
+/* ═══════════════════════ PAGES ═══════════════════════ */
+.page{display:none;padding:.9rem .85rem;min-height:100%}
+.page.active{display:block;animation:pu .22s ease}
+@keyframes pu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.page-title{font-size:1.1rem;font-weight:800;color:var(--navy);margin-bottom:1rem;
+  display:flex;align-items:center;gap:7px}
+.page-title span{font-size:1.2rem}
+
+/* ═══════════════════════ STATS GRID ═══════════════════════ */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:1rem}
+.sg.g3{grid-template-columns:repeat(3,1fr)}
+.sc{background:#fff;border:1px solid var(--border);border-radius:var(--r);
+  padding:.85rem .9rem;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;top:0;right:0;left:0;height:3px;border-radius:var(--r) var(--r) 0 0}
+.sc.c-blue::before{background:linear-gradient(90deg,#1d4ed8,#3b82f6)}
+.sc.c-green::before{background:linear-gradient(90deg,#16a34a,#22c55e)}
+.sc.c-red::before{background:linear-gradient(90deg,#dc2626,#f87171)}
+.sc.c-amber::before{background:linear-gradient(90deg,#d97706,#fbbf24)}
+.sc.c-orange::before{background:linear-gradient(90deg,#ea580c,#fb923c)}
+.sc-val{font-size:1.7rem;font-weight:900;line-height:1;margin:.2rem 0}
+.sc.c-blue .sc-val{color:var(--blue)}.sc.c-green .sc-val{color:var(--green)}
+.sc.c-red .sc-val{color:var(--red)}.sc.c-amber .sc-val{color:var(--amber)}
+.sc.c-orange .sc-val{color:var(--orange)}
+.sc-lbl{font-size:.68rem;color:var(--muted);font-weight:600}
+.sc-icon{position:absolute;bottom:6px;left:10px;font-size:1.4rem;opacity:.12}
+
+/* ═══════════════════════ CARDS ═══════════════════════ */
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--shadow);margin-bottom:.85rem;overflow:hidden}
+.card-hd{padding:.8rem 1rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.card-hd h3{font-size:.88rem;font-weight:700;color:var(--navy);
+  display:flex;align-items:center;gap:6px}
+.card-body{padding:.85rem 1rem}
+
+/* ═══════════════════════ BADGES ═══════════════════════ */
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;
+  font-size:.68rem;font-weight:700}
+.bg-green{background:var(--lgreen);color:var(--green)}
+.bg-red{background:var(--lred);color:var(--red)}
+.bg-blue{background:var(--sky);color:var(--blue)}
+.bg-amber{background:var(--lamber);color:var(--amber)}
+.bg-orange{background:var(--lorange);color:var(--orange)}
+.bg-gray{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+
+/* ═══════════════════════ BUTTONS ═══════════════════════ */
+.btn{padding:.65rem 1.1rem;border-radius:10px;border:none;font-size:.84rem;
+  font-weight:700;transition:all .15s;display:inline-flex;align-items:center;gap:6px;
+  white-space:nowrap;min-height:44px}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(29,78,216,.3)}
+.btn-primary:active{background:#1e40af}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:active{background:#15803d}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:active{background:#b91c1c}
+.btn-ghost{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:active{background:var(--border)}
+.btn-excel{background:#217346;color:#fff}
+.btn-excel:active{background:#1a5c38}
+.btn-sm{padding:.5rem .9rem;font-size:.78rem;min-height:38px;border-radius:8px}
+.btn-xs{padding:.35rem .7rem;font-size:.72rem;min-height:32px;border-radius:7px}
+.btn-w100{width:100%;justify-content:center}
+.btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--lblue)}
+.btn-outline:active{background:var(--sky)}
+
+/* ═══════════════════════ FORMS ═══════════════════════ */
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:.72rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em}
+.fg input,.fg select,.fg textarea{
+  background:#fff;border:1.5px solid var(--border);border-radius:10px;
+  padding:.65rem .85rem;color:var(--text);font-size:16px;outline:none;
+  transition:border .18s;direction:rtl;-webkit-appearance:none;appearance:none;
+  min-height:44px}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--lblue)}
+.fg select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%2364748b' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left .5rem center;background-size:20px;
+  padding-left:2rem}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.fgrid .fg.full{grid-column:1/-1}
+.req{color:var(--red)}
+.hint{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+/* ═══════════════════════ TABLE ═══════════════════════ */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+thead th{background:#f8fafc;padding:.6rem .75rem;text-align:right;font-size:.65rem;
+  font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:2px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:last-child{border-bottom:none}
+td{padding:.6rem .75rem;vertical-align:middle}
+.td-name{display:flex;align-items:center;gap:8px;min-width:0}
+.av{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:.68rem;flex-shrink:0;color:#fff}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.75rem}
+
+/* ═══════════════════════ LOG LIST ═══════════════════════ */
+.log-list{display:flex;flex-direction:column;gap:.5rem}
+.log-item{display:flex;align-items:center;gap:.7rem;padding:.65rem .85rem;
+  background:var(--bg);border-radius:10px;border:1px solid var(--border)}
+.log-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ld-in{background:var(--green)}.ld-out{background:var(--blue)}.ld-abs{background:var(--red)}
+.log-time{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted);flex-shrink:0}
+.log-name{font-size:.82rem;font-weight:600;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-late{font-size:.68rem;color:var(--amber);font-weight:700;flex-shrink:0}
+
+/* ═══════════════════════ EMPLOYEE CARD ═══════════════════════ */
+.emp-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);
+  padding:.9rem 1rem;margin-bottom:.65rem;box-shadow:var(--shadow)}
+.emp-card-top{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem}
+.av-lg{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:.9rem;color:#fff;flex-shrink:0}
+.emp-info h4{font-size:.9rem;font-weight:700;margin-bottom:1px}
+.emp-info p{font-size:.72rem;color:var(--muted)}
+.emp-meta{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem}
+.emp-actions{display:flex;gap:.5rem}
+
+/* ═══════════════════════ MODAL / BOTTOM SHEET ═══════════════════════ */
+.overlay{position:fixed;inset:0;background:rgba(15,43,91,.5);backdrop-filter:blur(4px);
+  z-index:500;display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .22s}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:92vh;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);
+  padding-bottom:calc(1rem + var(--safe-bottom));
+}
+.overlay.open .sheet{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;background:var(--b2);border-radius:2px;
+  margin:.75rem auto .5rem}
+.sheet-header{padding:.5rem 1.2rem 1rem;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);margin-bottom:.25rem;position:sticky;top:0;background:#fff;z-index:1}
+.sheet-header h3{font-size:.95rem;font-weight:700;color:var(--navy)}
+.close-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.close-btn:active{border-color:var(--red);color:var(--red)}
+.sheet-body{padding:.75rem 1.2rem}
+.sheet-footer{padding:.75rem 1.2rem 0;border-top:1px solid var(--border);
+  display:flex;gap:.5rem;justify-content:flex-end}
+
+/* ═══════════════════════ TABS ═══════════════════════ */
+.tabs{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);
+  border-radius:11px;padding:4px;margin-bottom:1rem}
+.tab{flex:1;padding:.5rem .3rem;border-radius:8px;border:none;background:transparent;
+  font-family:inherit;font-size:.72rem;font-weight:700;color:var(--muted);transition:all .15s;
+  white-space:nowrap;min-height:36px}
+.tab.active{background:#fff;color:var(--blue);box-shadow:var(--shadow)}
+
+/* ═══════════════════════ FILTERS ═══════════════════════ */
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;align-items:flex-end}
+.filter-row .fg{flex:1;min-width:120px}
+.filter-row .fg input,.filter-row .fg select{font-size:14px;padding:.55rem .75rem;min-height:40px}
+
+/* ═══════════════════════ REPORT SUMMARY ═══════════════════════ */
+.rep-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.85rem}
+.rep-box{background:#fff;border:1px solid var(--border);border-radius:11px;padding:.7rem .5rem;
+  text-align:center;box-shadow:var(--shadow)}
+.rep-box .rv{font-size:1.35rem;font-weight:900;line-height:1}
+.rep-box .rl{font-size:.62rem;color:var(--muted);margin-top:2px}
+.rb-green{border-top:3px solid var(--green)}.rb-red{border-top:3px solid var(--red)}
+.rb-amber{border-top:3px solid var(--amber)}.rb-blue{border-top:3px solid var(--blue)}
+
+/* ═══════════════════════ INSTALL BANNER ═══════════════════════ */
+#installBanner{
+  display:none;position:fixed;top:calc(var(--header-h) + var(--safe-top) + .5rem);
+  left:.75rem;right:.75rem;z-index:300;
+  background:var(--navy);color:#fff;border-radius:14px;
+  padding:.9rem 1rem;box-shadow:var(--shadow2);
+  animation:slideDown .3s ease;
+}
+@keyframes slideDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+#installBanner .ib-inner{display:flex;align-items:center;gap:.75rem}
+#installBanner .ib-icon{font-size:1.6rem;flex-shrink:0}
+#installBanner .ib-text{flex:1;font-size:.8rem;line-height:1.4}
+#installBanner .ib-text strong{display:block;margin-bottom:2px}
+#installBanner .ib-btns{display:flex;gap:.5rem;margin-top:.65rem}
+
+/* ═══════════════════════ TOAST ═══════════════════════ */
+#toast{
+  position:fixed;bottom:calc(var(--nav-h) + var(--safe-bottom) + .75rem);
+  left:50%;transform:translateX(-50%) translateY(80px);
+  background:#1e293b;color:#fff;padding:.65rem 1.2rem;border-radius:10px;
+  font-size:.82rem;font-weight:600;z-index:999;
+  transition:transform .28s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 8px 30px rgba(0,0,0,.2);white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{border-right:4px solid var(--green)}
+#toast.err{border-right:4px solid var(--red)}
+#toast.info{border-right:4px solid var(--lblue)}
+
+/* ═══════════════════════ MISC ═══════════════════════ */
+.empty-state{padding:2.5rem 1rem;text-align:center;color:var(--muted)}
+.empty-state .ei{font-size:2.2rem;margin-bottom:.5rem;opacity:.4}
+.empty-state p{font-size:.82rem}
+.flex{display:flex;align-items:center;gap:.5rem}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.mt1{margin-top:.75rem}.mb1{margin-bottom:.75rem}
+.text-sm{font-size:.78rem}.text-xs{font-size:.7rem}.text-muted{color:var(--muted)}
+.font-bold{font-weight:700}.text-center{text-align:center}
+.divider{height:1px;background:var(--border);margin:.65rem 0}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ═══════════════════════ BULK TABLE ═══════════════════════ */
+.bulk-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:center;
+  padding:.6rem 0;border-bottom:1px solid var(--border)}
+.bulk-row:last-child{border-bottom:none}
+.bulk-name{font-size:.82rem;font-weight:600}
+.bulk-dept{font-size:.68rem;color:var(--muted)}
+.bulk-controls{display:flex;flex-direction:column;gap:.35rem;min-width:120px}
+.bulk-controls select,.bulk-controls input{font-size:13px;padding:.3rem .5rem;
+  border:1px solid var(--border);border-radius:7px;background:#fff;min-height:32px}
+
+/* ═══════════════════════ PROGRESS BAR ═══════════════════════ */
+.prog-wrap{height:5px;background:var(--border);border-radius:3px;margin-top:.35rem}
+.prog-fill{height:100%;border-radius:3px;transition:width .4s}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header id="appHeader">
+  <div class="hdr-title">
+    <div class="hdr-logo">⏱</div>
+    <span class="hdr-name">نظام الدوام</span>
+  </div>
+  <div class="hdr-right">
+    <div id="syncBadge" style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.1);border-radius:8px;padding:4px 8px;">
+      <span>🔄</span><span style="font-size:.72rem;color:#93c5fd;font-weight:700">جاري الاتصال...</span>
+    </div>
+    <span class="hdr-clock" id="clk">00:00</span>
+  </div>
+</header>
+
+<!-- install banner -->
+<div id="installBanner">
+  <div class="ib-inner">
+    <div class="ib-icon">📱</div>
+    <div class="ib-text">
+      <strong>ثبّت التطبيق على هاتفك!</strong>
+      يعمل بدون إنترنت ويُحفظ على الشاشة الرئيسية
+      <div class="ib-btns">
+        <button class="btn btn-sm" style="background:#3b82f6;color:#fff" id="installBtn">تثبيت</button>
+        <button class="btn btn-sm btn-ghost" id="dismissInstall" style="color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.2)">لاحقاً</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CONTENT ══════════════ -->
+<div id="appContent">
+
+<!-- ── DASHBOARD ──────────────────────────── -->
+<div class="page active" id="page-dashboard">
+  <div class="sg" id="sg1"></div>
+
+  <div class="card">
+    <div class="card-hd">
+      <h3>🕐 سجل الحضور</h3>
+      <span id="todayCount" class="badge bg-blue">0</span>
+    </div>
+    <div class="card-body" style="padding:.6rem .75rem">
+      <div class="log-list" id="dashLog"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">
+      <h3>❌ الغائبون</h3>
+      <span id="absentCount" class="badge bg-red">0</span>
+    </div>
+    <div class="card-body" style="padding:.6rem .75rem">
+      <div class="log-list" id="dashAbsent"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">
+      <h3>⏰ أكثر المتأخرين</h3>
+      <button class="btn btn-xs btn-outline" onclick="goPage('violations')">الكل</button>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>الموظف</th><th>أيام</th><th>دقائق</th></tr></thead>
+          <tbody id="lateMonthTbl"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TODAY ──────────────────────────────── -->
+<div class="page" id="page-today">
+  <div class="flex-between mb1">
+    <div class="page-title" style="margin:0"><span>📋</span> الحضور اليومي</div>
+    <button class="btn btn-xs btn-excel" onclick="exportTodayExcel()">📥 Excel</button>
+  </div>
+
+  <div class="sg" id="sg-today"></div>
+
+  <div class="tabs">
+    <button class="tab active" id="tt-present" onclick="switchTodayTab('present')">✅ الحاضرون</button>
+    <button class="tab" id="tt-absent" onclick="switchTodayTab('absent')">❌ الغائبون</button>
+  </div>
+
+  <div id="today-tab-present">
+    <div class="card">
+      <div class="card-hd"><h3>الحاضرون <span id="presentBadge" class="badge bg-green">0</span></h3></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>الموظف</th><th>دخول</th><th>خروج</th><th>تأخير</th></tr></thead>
+          <tbody id="presentTbl"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="today-tab-absent" style="display:none">
+    <div class="card">
+      <div class="card-hd"><h3>الغائبون <span id="absBadge2" class="badge bg-red">0</span></h3></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>الموظف</th><th>القسم</th><th>المنصب</th></tr></thead>
+          <tbody id="absentTbl"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ATTENDANCE REG ──────────────────────── -->
+<div class="page" id="page-attendance">
+  <div class="flex-between mb1">
+    <div class="page-title" style="margin:0"><span>✅</span> تسجيل الدوام</div>
+    <button class="btn btn-xs btn-excel" onclick="exportAttExcel()">📥</button>
+  </div>
+
+  <div class="card mb1">
+    <div class="card-body">
+      <div class="fgrid">
+        <div class="fg"><label>التاريخ</label>
+          <input type="date" id="attDate" onchange="loadAttDate()"></div>
+        <div class="fg"><label>الموظف</label>
+          <select id="attEmpFilter" onchange="loadAttDate()">
+            <option value="">الكل</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex mb1" style="gap:.5rem">
+    <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="openBulkModal()">
+      📝 تسجيل جماعي
+    </button>
+    <button class="btn btn-sm btn-outline" onclick="openAttModal(null, document.getElementById('attDate').value)">
+      ＋ إضافة
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-hd"><h3>سجل الحضور</h3></div>
+    <div id="attList"></div>
+  </div>
+</div>
+
+<!-- ── EMPLOYEES ──────────────────────────── -->
+<div class="page" id="page-employees">
+  <div class="flex-between mb1">
+    <div class="page-title" style="margin:0"><span>👥</span> الموظفون</div>
+    <button class="btn btn-primary btn-sm" onclick="openAddEmp()">＋ إضافة</button>
+  </div>
+  <div id="empList"></div>
+</div>
+
+<!-- ── REPORTS ─────────────────────────────── -->
+<div class="page" id="page-reports">
+  <div class="page-title"><span>📊</span> التقارير</div>
+
+  <div class="tabs">
+    <button class="tab active" id="rt-monthly" onclick="switchRepTab('monthly')">شهري</button>
+    <button class="tab" id="rt-violations" onclick="switchRepTab('violations')">التأخير</button>
+    <button class="tab" id="rt-absences" onclick="switchRepTab('absences')">الغياب</button>
+    <button class="tab" id="rt-employee" onclick="switchRepTab('employee')">موظف</button>
+  </div>
+
+  <!-- Monthly -->
+  <div id="rtab-monthly">
+    <div class="filter-row">
+      <div class="fg" style="flex:0 0 85px"><label>السنة</label><input type="number" id="ry" style="min-width:0"></div>
+      <div class="fg"><label>الشهر</label>
+        <select id="rm">
+          <option value="1">يناير</option><option value="2">فبراير</option>
+          <option value="3">مارس</option><option value="4">أبريل</option>
+          <option value="5">مايو</option><option value="6">يونيو</option>
+          <option value="7">يوليو</option><option value="8">أغسطس</option>
+          <option value="9">سبتمبر</option><option value="10">أكتوبر</option>
+          <option value="11">نوفمبر</option><option value="12">ديسمبر</option>
+        </select></div>
+      <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="buildMonthly()">عرض</button>
+      <button class="btn btn-excel btn-sm" style="align-self:flex-end" onclick="exportMonthlyExcel()">📥</button>
+    </div>
+    <div id="monthlyOut"></div>
+  </div>
+
+  <!-- Violations -->
+  <div id="rtab-violations" style="display:none">
+    <div class="filter-row">
+      <div class="fg"><label>من</label><input type="date" id="vlf"></div>
+      <div class="fg"><label>إلى</label><input type="date" id="vlt"></div>
+      <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="buildLateReport()">عرض</button>
+      <button class="btn btn-excel btn-sm" style="align-self:flex-end" onclick="exportViolationsExcel('late')">📥</button>
+    </div>
+    <div id="lateOut"></div>
+  </div>
+
+  <!-- Absences -->
+  <div id="rtab-absences" style="display:none">
+    <div class="filter-row">
+      <div class="fg"><label>من</label><input type="date" id="vaf"></div>
+      <div class="fg"><label>إلى</label><input type="date" id="vat"></div>
+      <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="buildAbsentReport()">عرض</button>
+      <button class="btn btn-excel btn-sm" style="align-self:flex-end" onclick="exportViolationsExcel('absent')">📥</button>
+    </div>
+    <div id="absentOut"></div>
+  </div>
+
+  <!-- Employee -->
+  <div id="rtab-employee" style="display:none">
+    <div class="filter-row">
+      <div class="fg full"><label>الموظف</label><select id="re"><option value="">اختر...</option></select></div>
+      <div class="fg"><label>من</label><input type="date" id="ref"></div>
+      <div class="fg"><label>إلى</label><input type="date" id="ret"></div>
+      <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="buildEmpReport()">عرض</button>
+      <button class="btn btn-excel btn-sm" style="align-self:flex-end" onclick="exportEmpExcel()">📥</button>
+    </div>
+    <div id="empRepOut"></div>
+  </div>
+</div>
+
+</div><!-- end appContent -->
+
+<!-- ══════════════ BOTTOM NAV ══════════════ -->
+<nav id="bottomNav">
+  <button class="bnav-item active" id="nb-dashboard" onclick="goPage('dashboard')">
+    <span class="bni">📊</span>الرئيسية
+  </button>
+  <button class="bnav-item" id="nb-today" onclick="goPage('today')">
+    <span class="bni">📋</span>اليوم
+  </button>
+  <button class="bnav-item" id="nb-attendance" onclick="goPage('attendance')">
+    <span class="bni">✅</span>تسجيل
+  </button>
+  <button class="bnav-item" id="nb-employees" onclick="goPage('employees')">
+    <span class="bni">👥</span>الموظفون
+  </button>
+  <button class="bnav-item" id="nb-reports" onclick="goPage('reports')">
+    <span class="bni">📈</span>التقارير
+  </button>
+</nav>
+
+<!-- ══════════════ BOTTOM SHEETS ══════════════ -->
+
+<!-- Employee Sheet -->
+<div class="overlay" id="empOverlay" onclick="if(event.target===this)closeModal('empOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3 id="empSheetTitle">إضافة موظف</h3>
+      <button class="close-btn" onclick="closeModal('empOverlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fg mb1"><label>الاسم الكامل <span class="req">*</span></label>
+        <input type="text" id="em_name" placeholder="اسم الموظف"></div>
+      <div class="fgrid">
+        <div class="fg"><label>القسم</label>
+          <input type="text" id="em_dept" list="deptList" placeholder="المحاسبة...">
+          <datalist id="deptList"></datalist></div>
+        <div class="fg"><label>المنصب</label>
+          <input type="text" id="em_pos" placeholder="محاسب..."></div>
+        <div class="fg"><label>الهاتف</label>
+          <input type="tel" id="em_phone" placeholder="05xxxxxxxx"></div>
+        <div class="fg"><label>البريد</label>
+          <input type="email" id="em_email" placeholder="email@..."></div>
+        <div class="fg"><label>وقت الدوام</label>
+          <input type="time" id="em_start" value="08:00"></div>
+        <div class="fg"><label>سماح (دقيقة)</label>
+          <input type="number" id="em_grace" value="0" min="0" max="60"></div>
+        <div class="fg full"><label>تاريخ الالتحاق</label>
+          <input type="date" id="em_join"></div>
+      </div>
+    </div>
+    <div class="sheet-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('empOverlay')">إلغاء</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEmployee()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Attendance Record Sheet -->
+<div class="overlay" id="attOverlay" onclick="if(event.target===this)closeModal('attOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3 id="attSheetTitle">تسجيل حضور</h3>
+      <button class="close-btn" onclick="closeModal('attOverlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fgrid">
+        <div class="fg"><label>الموظف <span class="req">*</span></label>
+          <select id="att_emp"><option value="">-- اختر --</option></select></div>
+        <div class="fg"><label>التاريخ <span class="req">*</span></label>
+          <input type="date" id="att_date"></div>
+        <div class="fg full"><label>الحالة <span class="req">*</span></label>
+          <select id="att_status" onchange="onStatusChange()">
+            <option value="present">حاضر ✅</option>
+            <option value="absent">غائب ❌</option>
+            <option value="excuse">غياب بعذر 📄</option>
+            <option value="vacation">إجازة 🌴</option>
+            <option value="sick">مرضية 🏥</option>
+          </select></div>
+        <div class="fg" id="fg_checkin"><label>وقت الدخول</label>
+          <input type="time" id="att_in" value="08:00" oninput="calcLate()"></div>
+        <div class="fg" id="fg_checkout"><label>وقت الخروج</label>
+          <input type="time" id="att_out" value="16:00"></div>
+        <div class="fg full" id="fg_late" style="display:none">
+          <div id="lateInfo" style="background:var(--lamber);border:1px solid #fde68a;
+            border-radius:9px;padding:.65rem .85rem;font-size:.78rem;color:var(--amber);font-weight:600">
+            ⏰ <span id="lateInfoTxt"></span>
+          </div>
+        </div>
+        <div class="fg full"><label>ملاحظات</label>
+          <textarea id="att_notes" rows="2" placeholder="أي ملاحظات..."></textarea></div>
+      </div>
+    </div>
+    <div class="sheet-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('attOverlay')">إلغاء</button>
+      <button class="btn btn-primary btn-sm" onclick="saveAttendance()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Sheet -->
+<div class="overlay" id="bulkOverlay" onclick="if(event.target===this)closeModal('bulkOverlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3>📝 تسجيل جماعي</h3>
+      <button class="close-btn" onclick="closeModal('bulkOverlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="fgrid mb1">
+        <div class="fg full"><label>التاريخ</label><input type="date" id="bulk_date"></div>
+      </div>
+      <div class="flex mb1" style="gap:.5rem">
+        <button class="btn btn-success btn-sm" style="flex:1;justify-content:center" onclick="bulkSetAll('present')">✅ الكل حاضر</button>
+        <button class="btn btn-danger btn-sm" style="flex:1;justify-content:center" onclick="bulkSetAll('absent')">❌ الكل غائب</button>
+      </div>
+      <div id="bulkList" style="max-height:55vh;overflow-y:auto"></div>
+    </div>
+    <div class="sheet-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('bulkOverlay')">إلغاء</button>
+      <button class="btn btn-primary btn-sm" onclick="saveBulk()">💾 حفظ الكل</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm -->
+<div class="overlay" id="delOverlay" onclick="if(event.target===this)closeModal('delOverlay')">
+  <div class="sheet" style="max-height:320px">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header"><h3>تأكيد الحذف</h3>
+      <button class="close-btn" onclick="closeModal('delOverlay')">✕</button></div>
+    <div class="sheet-body text-center">
+      <div style="font-size:2.2rem;margin:.5rem 0">⚠️</div>
+      <p class="font-bold" id="delMsg" style="margin-bottom:.4rem;font-size:.9rem">هل أنت متأكد؟</p>
+      <p class="text-xs text-muted">لا يمكن التراجع عن هذا الإجراء</p>
+    </div>
+    <div class="sheet-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('delOverlay')">إلغاء</button>
+      <button class="btn btn-danger btn-sm" id="delConfirmBtn">حذف</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ══════════════ JAVASCRIPT ══════════════ -->
+<script type="module">
+// ═══════════════════════════════
+const WORK_START = '08:00';
+const WORK_END   = '16:00';
+const FRIDAY     = 5;
+
+// ═══════════════════════════════
+//  FIREBASE CONFIG
+//  ⚙️ ضع إعدادات Firebase الخاصة بك هنا
+// ═══════════════════════════════
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBUc8_r3WLH3HtQDyzZVF1r_uaY_1a1ySw",
+  authDomain: "workshop-attendance-508ca.firebaseapp.com",
+  databaseURL: "https://workshop-attendance-508ca-default-rtdb.firebaseio.com",
+  projectId: "workshop-attendance-508ca",
+  storageBucket: "workshop-attendance-508ca.firebasestorage.app",
+  messagingSenderId: "680519493916",
+  appId: "1:680519493916:web:123d596edda0ce2a94b2d9"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+// ═══════════════════════════════
+//  FIREBASE INIT
+// ═══════════════════════════════
+import { initializeApp }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, collection,
+         getDoc, getDocs, setDoc, deleteDoc,
+         onSnapshot, writeBatch }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const _app = initializeApp(FIREBASE_CONFIG);
+const db   = getFirestore(_app);
+
+// ─── Sync state ────────────────
+let _syncStatus = 'connecting'; // connecting | online | offline | error
+let _pendingWrites = JSON.parse(localStorage.getItem('_pending')||'[]');
+
+function setSyncUI(s){
+  _syncStatus = s;
+  const el = document.getElementById('syncBadge');
+  if(!el) return;
+  const map = {
+    connecting: ['🔄','#64748b','جاري الاتصال...'],
+    online:     ['☁️','#16a34a','متزامن'],
+    offline:    ['📴','#ea580c','غير متصل'],
+    saving:     ['💾','#1d4ed8','يحفظ...'],
+    error:      ['⚠️','#dc2626','خطأ']
+  };
+  const [ic,col,lbl] = map[s]||map.error;
+  el.innerHTML = `<span>${ic}</span><span style="font-size:.72rem;color:${col};font-weight:700">${lbl}</span>`;
+}
+
+// ─── DATA LAYER ────────────────
+let employees  = JSON.parse(localStorage.getItem('att_employees')||'[]');
+let attendance = JSON.parse(localStorage.getItem('att_records')  ||'{}');
+
+// Save locally immediately, then push to Firestore
+async function saveAll(){
+  localStorage.setItem('att_employees', JSON.stringify(employees));
+  localStorage.setItem('att_records',   JSON.stringify(attendance));
+  await pushToFirebase();
+}
+
+async function pushToFirebase(){
+  setSyncUI('saving');
+  try {
+    const batch = writeBatch(db);
+    // employees doc
+    batch.set(doc(db,'workshop','employees'), { list: employees });
+    // attendance doc (split by date-chunks to stay under 1MB)
+    batch.set(doc(db,'workshop','attendance'), { records: attendance });
+    await batch.commit();
+    setSyncUI('online');
+    localStorage.removeItem('_pending');
+  } catch(e){
+    setSyncUI('offline');
+    localStorage.setItem('_pending','1');
+    console.warn('Firebase write failed – data saved locally', e);
+  }
+}
+
+async function loadFromFirebase(){
+  setSyncUI('connecting');
+  try {
+    const [empSnap, attSnap] = await Promise.all([
+      getDoc(doc(db,'workshop','employees')),
+      getDoc(doc(db,'workshop','attendance'))
+    ]);
+    if(empSnap.exists())  employees  = empSnap.data().list    || [];
+    if(attSnap.exists())  attendance = attSnap.data().records || {};
+    // sync local cache
+    localStorage.setItem('att_employees', JSON.stringify(employees));
+    localStorage.setItem('att_records',   JSON.stringify(attendance));
+    setSyncUI('online');
+  } catch(e){
+    setSyncUI('offline');
+    console.warn('Firebase read failed – using local cache', e);
+  }
+}
+
+// Real-time listener – updates UI when another device changes data
+function startRealtimeSync(){
+  onSnapshot(doc(db,'workshop','employees'), snap => {
+    if(snap.exists()){
+      employees = snap.data().list || [];
+      localStorage.setItem('att_employees', JSON.stringify(employees));
+      if(currentPage==='employees') renderEmployees();
+      if(currentPage==='dashboard') renderDashboard();
+      updateAllEmpSelects();
+    }
+  });
+  onSnapshot(doc(db,'workshop','attendance'), snap => {
+    if(snap.exists()){
+      attendance = snap.data().records || {};
+      localStorage.setItem('att_records', JSON.stringify(attendance));
+      if(currentPage==='dashboard')  renderDashboard();
+      if(currentPage==='today')      renderToday();
+      if(currentPage==='attendance') renderAttPage();
+    }
+  });
+}
+
+// Online/offline events
+window.addEventListener('online',  () => { setSyncUI('connecting'); pushToFirebase(); });
+window.addEventListener('offline', () => setSyncUI('offline'));
+
+// ═══════════════════════════════
+//  HELPERS
+// ═══════════════════════════════
+const isoToday  = () => new Date().toISOString().split('T')[0];
+const isFriday  = (d) => new Date(d+'T12:00:00').getDay() === FRIDAY;
+const timeToMin = (t) => { if(!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m }
+const minToTime = (m) => String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')
+
+function calcLateMins(ci, start, grace){
+  if(!ci) return 0;
+  return Math.max(0, timeToMin(ci) - timeToMin(start||WORK_START) - (grace||0));
+}
+function calcWorkHours(ci, co){
+  if(!ci||!co) return null;
+  const d = timeToMin(co) - timeToMin(ci);
+  return d>0 ? (d/60).toFixed(1) : null;
+}
+const fmtDate  = (d) => d ? d.split('-').reverse().join('/') : '—';
+const dayName  = (d) => ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][new Date(d+'T12:00:00').getDay()];
+const monthName= (m) => ['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][m];
+
+function getAvatarColor(name){
+  const c=['#3b82f6','#8b5cf6','#ec4899','#f97316','#14b8a6','#84cc16','#f43f5e','#06b6d4'];
+  let h=0; for(let ch of (name||'')) h=(h+ch.charCodeAt(0))%c.length; return c[h];
+}
+const initials = (n) => n ? n.split(' ').map(w=>w[0]).join('').substring(0,2) : '؟';
+
+function getRecord(eid, date){ return attendance[eid+'_'+date] || null }
+function setRecord(eid, date, r){ attendance[eid+'_'+date]={...r,empId:eid,date}; saveAll() }
+function delRecord(eid, date){ delete attendance[eid+'_'+date]; saveAll() }
+function getDayRecords(date){ return Object.values(attendance).filter(r=>r.date===date) }
+
+function workingDaysInMonth(y, m){
+  const days=[]; const today=isoToday();
+  const d=new Date(y,m-1,1);
+  while(d.getMonth()===m-1){
+    const ds=d.toISOString().split('T')[0];
+    if(d.getDay()!==FRIDAY && ds<=today) days.push(ds);
+    d.setDate(d.getDate()+1);
+  }
+  return days;
+}
+
+const statusLabel = (s) => ({present:'حاضر',absent:'غائب',excuse:'بعذر',vacation:'إجازة',sick:'مرضية'}[s]||s);
+const statusBadge = (s) => ({present:'bg-green',absent:'bg-red',excuse:'bg-amber',vacation:'bg-blue',sick:'bg-orange'}[s]||'bg-gray');
+
+// ═══════════════════════════════
+//  PWA INSTALL
+// ═══════════════════════════════
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if(!localStorage.getItem('installDismissed')){
+    document.getElementById('installBanner').style.display='block';
+  }
+});
+document.getElementById('installBtn').onclick = async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const r = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').style.display='none';
+  if(r.outcome==='accepted') toast('🎉 تم تثبيت التطبيق!','ok');
+};
+document.getElementById('dismissInstall').onclick = () => {
+  localStorage.setItem('installDismissed','1');
+  document.getElementById('installBanner').style.display='none';
+};
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').style.display='none';
+});
+
+// Register service worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// ═══════════════════════════════
+//  CLOCK
+// ═══════════════════════════════
+function tick(){
+  const n=new Date();
+  document.getElementById('clk').textContent=n.toLocaleTimeString('en-GB',{hour12:false,hour:'2-digit',minute:'2-digit'});
+}
+setInterval(tick,1000); tick();
+
+// ═══════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════
+let currentPage='dashboard';
+function goPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nb-'+name).classList.add('active');
+  currentPage=name;
+  // Scroll to top
+  document.getElementById('appContent').scrollTop=0;
+  if(name==='dashboard')  renderDashboard();
+  if(name==='today')      renderToday();
+  if(name==='employees')  renderEmployees();
+  if(name==='attendance') renderAttPage();
+  if(name==='reports')    initReports();
+}
+
+// ═══════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════
+function renderDashboard(){
+  const today=isoToday(); const isHol=isFriday(today);
+  const allEmps=employees.filter(e=>e.active!==false);
+  const dayRecs=getDayRecords(today);
+  const present=dayRecs.filter(r=>r.status==='present');
+  const absent=isHol?[]:allEmps.filter(e=>!dayRecs.find(r=>r.empId===e.id));
+  const late=present.filter(r=>r.lateMin>0);
+
+  document.getElementById('sg1').innerHTML=[
+    {c:'c-blue',v:allEmps.length,l:'إجمالي',i:'👥'},
+    {c:'c-green',v:present.length,l:'حاضر',i:'✅'},
+    {c:'c-red',v:absent.length,l:'غائب',i:'❌'},
+    {c:'c-amber',v:late.length,l:'متأخر',i:'⏰'},
+    {c:'c-orange',v:late.reduce((a,r)=>a+(r.lateMin||0),0),l:'دق. تأخير',i:'⏱'},
+    {c:'c-blue',v:dayRecs.filter(r=>r.checkOut).length,l:'غادروا',i:'🚪'},
+  ].map(x=>`<div class="sc ${x.c}">
+    <div class="sc-lbl">${x.l}</div>
+    <div class="sc-val">${x.v}</div>
+    <div class="sc-icon">${x.i}</div>
+  </div>`).join('');
+
+  document.getElementById('todayCount').textContent=present.length;
+  const sortedPresent=[...present].sort((a,b)=>(a.checkIn||'').localeCompare(b.checkIn||''));
+  document.getElementById('dashLog').innerHTML=sortedPresent.length
+    ? sortedPresent.map(r=>{
+        const e=employees.find(x=>x.id===r.empId);
+        return `<div class="log-item">
+          <div class="log-dot ld-in"></div>
+          <span class="log-time">${(r.checkIn||'--:--').substring(0,5)}</span>
+          <span class="log-name">${e?e.name:'؟'}</span>
+          ${r.lateMin>0?`<span class="log-late">+${r.lateMin}د</span>`:''}
+        </div>`;
+      }).join('')
+    : `<div class="empty-state"><div class="ei">📋</div><p>${isHol?'جمعة - عطلة':'لا تسجيلات بعد'}</p></div>`;
+
+  document.getElementById('absentCount').textContent=absent.length;
+  document.getElementById('dashAbsent').innerHTML=absent.length
+    ? absent.map(e=>`<div class="log-item">
+        <div class="log-dot ld-abs"></div>
+        <span class="log-name">${e.name}</span>
+        <span class="text-xs text-muted">${e.department||''}</span>
+      </div>`).join('')
+    : `<div class="empty-state"><div class="ei">${isHol?'🏖️':'🎉'}</div><p>${isHol?'عطلة':'الجميع حاضر!'}</p></div>`;
+
+  buildLateMonthTable();
+}
+
+function buildLateMonthTable(){
+  const n=new Date(); const days=workingDaysInMonth(n.getFullYear(),n.getMonth()+1);
+  const summary=employees.filter(e=>e.active!==false).map(e=>{
+    let total=0,days2=0;
+    days.forEach(d=>{const r=getRecord(e.id,d);if(r&&r.lateMin>0){days2++;total+=r.lateMin;}});
+    return{...e,lateDays:days2,totalLate:total};
+  }).filter(e=>e.lateDays>0).sort((a,b)=>b.totalLate-a.totalLate).slice(0,5);
+  const tbody=document.getElementById('lateMonthTbl');
+  tbody.innerHTML=summary.length
+    ? summary.map(e=>`<tr>
+        <td><div class="td-name"><div class="av" style="background:${getAvatarColor(e.name)}">${initials(e.name)}</div><span style="font-size:.8rem;font-weight:600">${e.name}</span></div></td>
+        <td><span class="badge bg-amber">${e.lateDays}</span></td>
+        <td><strong style="color:var(--amber)">${e.totalLate}د</strong></td>
+      </tr>`).join('')
+    : `<tr><td colspan="3" class="text-center text-muted" style="padding:1.2rem;font-size:.8rem">لا تأخيرات هذا الشهر</td></tr>`;
+}
+
+// ═══════════════════════════════
+//  TODAY
+// ═══════════════════════════════
+function renderToday(){
+  const today=isoToday(); const isHol=isFriday(today);
+  const allEmps=employees.filter(e=>e.active!==false);
+  const dayRecs=getDayRecords(today);
+  const present=dayRecs.filter(r=>r.status==='present');
+  const absent=isHol?[]:allEmps.filter(e=>!dayRecs.find(r=>r.empId===e.id));
+  const late=present.filter(r=>r.lateMin>0);
+
+  document.getElementById('sg-today').innerHTML=[
+    {c:'c-green',v:present.length,l:'حاضر',i:'✅'},
+    {c:'c-red',v:absent.length,l:'غائب',i:'❌'},
+    {c:'c-amber',v:late.length,l:'متأخر',i:'⏰'},
+    {c:'c-amber',v:late.reduce((a,r)=>a+(r.lateMin||0),0),l:'دق. تأخير',i:'⏱'},
+  ].map(x=>`<div class="sc ${x.c}"><div class="sc-lbl">${x.l}</div><div class="sc-val">${x.v}</div><div class="sc-icon">${x.i}</div></div>`).join('');
+
+  document.getElementById('presentBadge').textContent=present.length;
+  document.getElementById('absBadge2').textContent=absent.length;
+
+  const sorted=[...present].sort((a,b)=>(a.checkIn||'').localeCompare(b.checkIn||''));
+  document.getElementById('presentTbl').innerHTML=sorted.length
+    ? sorted.map(r=>{
+        const e=employees.find(x=>x.id===r.empId);
+        return`<tr>
+          <td><div class="td-name"><div class="av" style="background:${getAvatarColor(e?e.name:'?')}">${initials(e?e.name:'?')}</div><span style="font-size:.79rem;font-weight:600">${e?e.name:'؟'}</span></div></td>
+          <td class="mono">${(r.checkIn||'—').substring(0,5)}</td>
+          <td>${r.checkOut?`<span class="mono">${r.checkOut.substring(0,5)}</span>`:'<span class="badge bg-gray">داخل</span>'}</td>
+          <td>${r.lateMin>0?`<span class="badge bg-amber">+${r.lateMin}د</span>`:'<span class="badge bg-green">✓</span>'}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="4" class="text-center text-muted" style="padding:1.2rem">${isHol?'عطلة رسمية':'لا حضور بعد'}</td></tr>`;
+
+  document.getElementById('absentTbl').innerHTML=absent.length
+    ? absent.map(e=>`<tr>
+        <td><div class="td-name"><div class="av" style="background:${getAvatarColor(e.name)}">${initials(e.name)}</div><span style="font-size:.79rem;font-weight:600">${e.name}</span></div></td>
+        <td class="text-muted text-xs">${e.department||'—'}</td>
+        <td class="text-muted text-xs">${e.position||'—'}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="3" class="text-center text-muted" style="padding:1.2rem">${isHol?'🏖️ عطلة':'🎉 الجميع حاضر!'}</td></tr>`;
+}
+
+function switchTodayTab(t){
+  ['present','absent'].forEach(x=>{
+    document.getElementById('today-tab-'+x).style.display=x===t?'':'none';
+    document.getElementById('tt-'+x).classList.toggle('active',x===t);
+  });
+}
+
+// ═══════════════════════════════
+//  EMPLOYEES
+// ═══════════════════════════════
+let editingEmpId=null;
+
+function renderEmployees(){
+  const emps=employees.filter(e=>e.active!==false);
+  const n=new Date(); const days=workingDaysInMonth(n.getFullYear(),n.getMonth()+1);
+  document.getElementById('empList').innerHTML=emps.length
+    ? emps.map(e=>{
+        const p=days.filter(d=>{const r=getRecord(e.id,d);return r&&r.status==='present'}).length;
+        const pct=days.length?Math.round(p/days.length*100):0;
+        return`<div class="emp-card">
+          <div class="emp-card-top">
+            <div class="av-lg" style="background:${getAvatarColor(e.name)}">${initials(e.name)}</div>
+            <div class="emp-info" style="flex:1;min-width:0">
+              <h4>${e.name}</h4>
+              <p>${e.department||''}${e.position?' · '+e.position:''}</p>
+            </div>
+            <span class="badge bg-blue">${pct}%</span>
+          </div>
+          <div class="emp-meta">
+            ${e.phone?`<span class="badge bg-gray">📞 ${e.phone}</span>`:''}
+            <span class="badge bg-gray">⏰ ${e.startTime||'08:00'}</span>
+            ${e.graceMins>0?`<span class="badge bg-amber">سماح ${e.graceMins}د</span>`:''}
+          </div>
+          <div class="prog-wrap"><div class="prog-fill" style="width:${pct}%;background:${pct>=90?'var(--green)':'var(--orange)'}"></div></div>
+          <div class="emp-actions mt1">
+            <button class="btn btn-outline btn-xs" style="flex:1;justify-content:center" onclick="openEditEmp('${e.id}')">✏️ تعديل</button>
+            <button class="btn btn-ghost btn-xs" style="flex:1;justify-content:center" onclick="openAttModal('${e.id}','${isoToday()}')">＋ حضور</button>
+            <button class="btn btn-xs" style="background:var(--lred);color:var(--red);border:1px solid #fecaca" onclick="confirmDel('emp','${e.id}','حذف ${e.name}')">🗑️</button>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div class="empty-state"><div class="ei">👥</div><p>لا يوجد موظفون — اضغط إضافة</p></div>`;
+}
+
+function openAddEmp(){
+  editingEmpId=null;
+  ['em_name','em_dept','em_pos','em_phone','em_email'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('em_start').value='08:00';
+  document.getElementById('em_grace').value='0';
+  document.getElementById('em_join').value='';
+  document.getElementById('empSheetTitle').textContent='إضافة موظف جديد';
+  const depts=[...new Set(employees.map(e=>e.department).filter(Boolean))];
+  document.getElementById('deptList').innerHTML=depts.map(d=>`<option value="${d}">`).join('');
+  openModal('empOverlay');
+}
+
+function openEditEmp(id){
+  editingEmpId=id;
+  const e=employees.find(x=>x.id===id); if(!e) return;
+  document.getElementById('em_name').value=e.name||'';
+  document.getElementById('em_dept').value=e.department||'';
+  document.getElementById('em_pos').value=e.position||'';
+  document.getElementById('em_phone').value=e.phone||'';
+  document.getElementById('em_email').value=e.email||'';
+  document.getElementById('em_start').value=e.startTime||'08:00';
+  document.getElementById('em_grace').value=e.graceMins||0;
+  document.getElementById('em_join').value=e.joinDate||'';
+  document.getElementById('empSheetTitle').textContent='تعديل بيانات الموظف';
+  openModal('empOverlay');
+}
+
+function saveEmployee(){
+  const name=document.getElementById('em_name').value.trim();
+  if(!name){toast('⚠️ أدخل اسم الموظف','err');return}
+  const data={name,
+    department:document.getElementById('em_dept').value.trim(),
+    position:document.getElementById('em_pos').value.trim(),
+    phone:document.getElementById('em_phone').value.trim(),
+    email:document.getElementById('em_email').value.trim(),
+    startTime:document.getElementById('em_start').value,
+    graceMins:parseInt(document.getElementById('em_grace').value)||0,
+    joinDate:document.getElementById('em_join').value, active:true};
+  if(editingEmpId){
+    const i=employees.findIndex(e=>e.id===editingEmpId);
+    if(i!==-1) employees[i]={...employees[i],...data};
+    toast('✅ تم التحديث','ok');
+  } else {
+    data.id='EMP'+Date.now().toString(36).toUpperCase();
+    employees.push(data);
+    toast('✅ تمت الإضافة','ok');
+  }
+  saveAll(); closeModal('empOverlay'); renderEmployees(); updateAllEmpSelects();
+}
+
+// ═══════════════════════════════
+//  ATTENDANCE
+// ═══════════════════════════════
+let editingAttKey=null;
+
+function renderAttPage(){
+  const d=document.getElementById('attDate');
+  if(!d.value) d.value=isoToday();
+  populateEmpSelect('attEmpFilter');
+  loadAttDate();
+}
+
+function loadAttDate(){
+  const date=document.getElementById('attDate').value;
+  const ef=document.getElementById('attEmpFilter').value;
+  const isHol=isFriday(date);
+  const emps=employees.filter(e=>e.active!==false&&(!ef||e.id===ef));
+
+  const container=document.getElementById('attList');
+  if(!emps.length){container.innerHTML=`<div class="empty-state"><div class="ei">📋</div><p>لا يوجد موظفون</p></div>`;return;}
+
+  container.innerHTML=emps.map(e=>{
+    const r=getRecord(e.id,date);
+    const hrs=r?calcWorkHours(r.checkIn,r.checkOut):null;
+    return`<div style="padding:.7rem 1rem;border-bottom:1px solid var(--border)">
+      <div class="flex-between">
+        <div class="flex" style="gap:.6rem;min-width:0">
+          <div class="av" style="background:${getAvatarColor(e.name)};width:32px;height:32px">${initials(e.name)}</div>
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
+            <div style="font-size:.68rem;color:var(--muted)">${e.department||''}</div>
+          </div>
+        </div>
+        <div class="flex" style="gap:.35rem;flex-shrink:0">
+          ${r?`<span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span>`
+            :isHol?`<span class="badge bg-gray">عطلة</span>`:`<span class="badge bg-gray">—</span>`}
+          <button class="btn btn-xs btn-primary" onclick="openAttModal('${e.id}','${date}')">${r?'✏️':'＋'}</button>
+          ${r?`<button class="btn btn-xs btn-ghost" onclick="confirmDel('att','${e.id}_${date}','حذف حضور ${e.name}')">🗑️</button>`:''}
+        </div>
+      </div>
+      ${r&&r.status==='present'?`
+        <div class="flex mt1" style="gap:.6rem;font-size:.74rem;color:var(--muted)">
+          <span>دخول: <strong class="mono" style="color:var(--text)">${(r.checkIn||'').substring(0,5)}</strong></span>
+          <span>خروج: <strong class="mono" style="color:var(--text)">${r.checkOut?(r.checkOut.substring(0,5)):'—'}</strong></span>
+          ${r.lateMin>0?`<span class="badge bg-amber">+${r.lateMin}د</span>`:''}
+          ${hrs?`<span style="color:var(--blue)">⏱ ${hrs}h</span>`:''}
+        </div>`:r&&r.notes?`<div class="text-xs text-muted mt1">${r.notes}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function openAttModal(empId, date){
+  editingAttKey=(empId&&date)?empId+'_'+date:null;
+  const r=empId&&date?getRecord(empId,date):null;
+  const e=empId?employees.find(x=>x.id===empId):null;
+  document.getElementById('attSheetTitle').textContent=r?`تعديل - ${e?.name||''}`:`تسجيل حضور${e?' - '+e.name:''}`;
+
+  populateEmpSelect('att_emp');
+  document.getElementById('att_emp').value=empId||'';
+  document.getElementById('att_date').value=date||isoToday();
+  document.getElementById('att_status').value=r?r.status:'present';
+  document.getElementById('att_in').value=r?r.checkIn||'08:00':'08:00';
+  document.getElementById('att_out').value=r?r.checkOut||'16:00':'16:00';
+  document.getElementById('att_notes').value=r?r.notes||'':'';
+  onStatusChange();
+  openModal('attOverlay');
+}
+
+function onStatusChange(){
+  const s=document.getElementById('att_status').value;
+  const show=s==='present';
+  document.getElementById('fg_checkin').style.display=show?'':'none';
+  document.getElementById('fg_checkout').style.display=show?'':'none';
+  document.getElementById('fg_late').style.display='none';
+  if(show) calcLate();
+}
+
+function calcLate(){
+  const ci=document.getElementById('att_in').value;
+  const eid=document.getElementById('att_emp').value;
+  const e=employees.find(x=>x.id===eid);
+  const late=calcLateMins(ci,e?e.startTime:WORK_START,e?e.graceMins:0);
+  const lateEl=document.getElementById('fg_late');
+  if(late>0){
+    lateEl.style.display='';
+    document.getElementById('lateInfoTxt').textContent=`تأخر ${late} دقيقة`;
+  } else {
+    lateEl.style.display='none';
+  }
+}
+
+function saveAttendance(){
+  const empId=document.getElementById('att_emp').value;
+  const date=document.getElementById('att_date').value;
+  const status=document.getElementById('att_status').value;
+  if(!empId||!date){toast('⚠️ اختر الموظف والتاريخ','err');return}
+  if(isFriday(date)){toast('⚠️ الجمعة يوم عطلة','err');return}
+  const e=employees.find(x=>x.id===empId);
+  const ci=status==='present'?document.getElementById('att_in').value:'';
+  const co=status==='present'?document.getElementById('att_out').value:'';
+  const lateMin=status==='present'?calcLateMins(ci,e?e.startTime:WORK_START,e?e.graceMins:0):0;
+  const notes=document.getElementById('att_notes').value.trim();
+  setRecord(empId,date,{status,checkIn:ci,checkOut:co,lateMin,notes});
+  toast('✅ تم حفظ الحضور','ok');
+  closeModal('attOverlay');
+  if(currentPage==='attendance') loadAttDate();
+  if(currentPage==='dashboard')  renderDashboard();
+  if(currentPage==='today')      renderToday();
+}
+
+// Bulk
+function openBulkModal(){
+  const date=document.getElementById('attDate').value||isoToday();
+  document.getElementById('bulk_date').value=date;
+  const emps=employees.filter(e=>e.active!==false);
+  document.getElementById('bulkList').innerHTML=emps.map(e=>{
+    const r=getRecord(e.id,date);
+    const st=r?r.status:'present';
+    const ci=r?r.checkIn||'08:00':'08:00';
+    const co=r?r.checkOut||'16:00':'16:00';
+    return`<div class="bulk-row">
+      <div><div class="bulk-name">${e.name}</div><div class="bulk-dept">${e.department||''}</div></div>
+      <div class="bulk-controls">
+        <select class="bulk-status" data-id="${e.id}" onchange="bulkStatusChange('${e.id}')">
+          <option value="present" ${st==='present'?'selected':''}>✅ حاضر</option>
+          <option value="absent" ${st==='absent'?'selected':''}>❌ غائب</option>
+          <option value="excuse" ${st==='excuse'?'selected':''}>📄 بعذر</option>
+          <option value="vacation" ${st==='vacation'?'selected':''}>🌴 إجازة</option>
+          <option value="sick" ${st==='sick'?'selected':''}>🏥 مرضية</option>
+        </select>
+        <div id="btime_${e.id}" style="display:${st==='present'?'flex':'none'};gap:.3rem">
+          <input type="time" class="bulk-ci" data-id="${e.id}" value="${ci}" oninput="bulkCalcLate('${e.id}')" style="flex:1">
+          <input type="time" class="bulk-co" data-id="${e.id}" value="${co}" style="flex:1">
+        </div>
+        <span id="blatetxt_${e.id}" style="font-size:.68rem;color:var(--amber);font-weight:700;text-align:center"></span>
+      </div>
+    </div>`;
+  }).join('');
+  openModal('bulkOverlay');
+}
+
+function bulkStatusChange(id){
+  const sel=document.querySelector(`.bulk-status[data-id="${id}"]`);
+  const show=sel.value==='present';
+  const bt=document.getElementById('btime_'+id);
+  if(bt) bt.style.display=show?'flex':'none';
+  if(!show) document.getElementById('blatetxt_'+id).textContent='';
+  else bulkCalcLate(id);
+}
+
+function bulkCalcLate(id){
+  const ci=document.querySelector(`.bulk-ci[data-id="${id}"]`);
+  const e=employees.find(x=>x.id===id); if(!ci||!e) return;
+  const late=calcLateMins(ci.value,e.startTime,e.graceMins);
+  const el=document.getElementById('blatetxt_'+id);
+  if(el) el.textContent=late>0?`+${late}د`:'';
+}
+
+function bulkSetAll(status){
+  employees.filter(e=>e.active!==false).forEach(e=>{
+    const sel=document.querySelector(`.bulk-status[data-id="${e.id}"]`);
+    if(sel){sel.value=status;bulkStatusChange(e.id);}
+  });
+}
+
+function saveBulk(){
+  const date=document.getElementById('bulk_date').value;
+  if(!date){toast('⚠️ اختر التاريخ','err');return}
+  if(isFriday(date)){toast('⚠️ الجمعة عطلة','err');return}
+  employees.filter(e=>e.active!==false).forEach(e=>{
+    const sel=document.querySelector(`.bulk-status[data-id="${e.id}"]`);
+    if(!sel) return;
+    const status=sel.value;
+    const ci=document.querySelector(`.bulk-ci[data-id="${e.id}"]`);
+    const co=document.querySelector(`.bulk-co[data-id="${e.id}"]`);
+    const checkIn=status==='present'&&ci?ci.value:'';
+    const checkOut=status==='present'&&co?co.value:'';
+    const lateMin=status==='present'?calcLateMins(checkIn,e.startTime,e.graceMins):0;
+    setRecord(e.id,date,{status,checkIn,checkOut,lateMin,notes:''});
+  });
+  toast(`✅ تم حفظ ${employees.filter(e=>e.active!==false).length} موظف`,'ok');
+  closeModal('bulkOverlay'); loadAttDate();
+  if(currentPage==='dashboard') renderDashboard();
+}
+
+// ═══════════════════════════════
+//  REPORTS
+// ═══════════════════════════════
+let monthlyData=[], empRepData=[], lateVData=[], absentVData=[];
+
+function initReports(){
+  const n=new Date(); const d=isoToday();
+  const mo=(new Date(Date.now()-27*864e5)).toISOString().split('T')[0];
+  document.getElementById('ry').value=n.getFullYear();
+  document.getElementById('rm').value=n.getMonth()+1;
+  document.getElementById('vlf').value=mo; document.getElementById('vlt').value=d;
+  document.getElementById('vaf').value=mo; document.getElementById('vat').value=d;
+  document.getElementById('ref').value=mo; document.getElementById('ret').value=d;
+  populateEmpSelect('re');
+}
+
+function switchRepTab(t){
+  ['monthly','violations','absences','employee'].forEach(x=>{
+    document.getElementById('rtab-'+x).style.display=x===t?'':'none';
+    document.getElementById('rt-'+x).classList.toggle('active',x===t);
+  });
+}
+
+function buildMonthly(){
+  const y=parseInt(document.getElementById('ry').value);
+  const m=parseInt(document.getElementById('rm').value);
+  const days=workingDaysInMonth(y,m);
+  monthlyData=employees.filter(e=>e.active!==false).map(e=>{
+    let present=0,absent=0,excuse=0,vacation=0,sick=0,totalLate=0,lateDays=0,totalHours=0;
+    days.forEach(d=>{
+      const r=getRecord(e.id,d);
+      if(!r){absent++;return}
+      if(r.status==='present'){present++;if(r.lateMin>0){lateDays++;totalLate+=r.lateMin;}const h=calcWorkHours(r.checkIn,r.checkOut);if(h)totalHours+=parseFloat(h);}
+      else if(r.status==='absent')absent++;
+      else if(r.status==='excuse')excuse++;
+      else if(r.status==='vacation')vacation++;
+      else if(r.status==='sick')sick++;
+    });
+    return{...e,present,absent,excuse,vacation,sick,totalLate,lateDays,totalHours:totalHours.toFixed(1),workDays:days.length,pct:days.length?Math.round(present/days.length*100):0};
+  });
+
+  const tP=monthlyData.reduce((a,r)=>a+r.present,0);
+  const tA=monthlyData.reduce((a,r)=>a+r.absent,0);
+  const tL=monthlyData.reduce((a,r)=>a+r.totalLate,0);
+  document.getElementById('monthlyOut').innerHTML=`
+    <div class="rep-sum">
+      <div class="rep-box rb-blue"><div class="rv" style="color:var(--blue)">${days.length}</div><div class="rl">أيام العمل</div></div>
+      <div class="rep-box rb-green"><div class="rv" style="color:var(--green)">${tP}</div><div class="rl">حضور</div></div>
+      <div class="rep-box rb-red"><div class="rv" style="color:var(--red)">${tA}</div><div class="rl">غياب</div></div>
+      <div class="rep-box rb-amber"><div class="rv" style="color:var(--amber)">${tL}</div><div class="rl">دق. تأخير</div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3>${monthName(m)} ${y}</h3></div>
+      ${monthlyData.map(e=>`
+        <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border)">
+          <div class="flex-between mb1">
+            <div class="flex" style="gap:.6rem">
+              <div class="av-lg" style="background:${getAvatarColor(e.name)};width:34px;height:34px;font-size:.75rem">${initials(e.name)}</div>
+              <div><div style="font-weight:700;font-size:.84rem">${e.name}</div>
+                <div class="text-xs text-muted">${e.department||''}</div></div>
+            </div>
+            <span style="font-weight:800;color:${e.pct>=90?'var(--green)':'var(--orange)'}">${e.pct}%</span>
+          </div>
+          <div class="flex" style="gap:.35rem;flex-wrap:wrap">
+            <span class="badge bg-green">✅ ${e.present}</span>
+            <span class="badge ${e.absent>0?'bg-red':'bg-gray'}">❌ ${e.absent}</span>
+            ${e.excuse>0?`<span class="badge bg-amber">📄 ${e.excuse}</span>`:''}
+            ${e.vacation>0?`<span class="badge bg-blue">🌴 ${e.vacation}</span>`:''}
+            ${e.lateDays>0?`<span class="badge bg-amber">⏰ ${e.lateDays}يوم / ${e.totalLate}د</span>`:''}
+            <span class="badge bg-gray">⏱ ${e.totalHours}h</span>
+          </div>
+          <div class="prog-wrap mt1"><div class="prog-fill" style="width:${e.pct}%;background:${e.pct>=90?'var(--green)':'var(--orange)'}"></div></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function buildLateReport(){
+  const from=document.getElementById('vlf').value, to=document.getElementById('vlt').value;
+  if(!from||!to){toast('⚠️ حدد الفترة','err');return}
+  lateVData=Object.values(attendance)
+    .filter(r=>r.status==='present'&&r.lateMin>0&&r.date>=from&&r.date<=to)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('lateOut').innerHTML=`
+    <div class="rep-sum">
+      <div class="rep-box rb-amber"><div class="rv" style="color:var(--amber)">${lateVData.length}</div><div class="rl">تأخير</div></div>
+      <div class="rep-box rb-amber"><div class="rv" style="color:var(--amber)">${lateVData.reduce((a,r)=>a+r.lateMin,0)}</div><div class="rl">دقيقة</div></div>
+    </div>
+    <div class="card">
+      ${lateVData.length
+        ? lateVData.map(r=>{const e=employees.find(x=>x.id===r.empId);return`
+          <div style="padding:.65rem 1rem;border-bottom:1px solid var(--border)">
+            <div class="flex-between">
+              <div class="flex" style="gap:.6rem">
+                <div class="av" style="background:${getAvatarColor(e?e.name:'?')}">${initials(e?e.name:'?')}</div>
+                <div><div style="font-weight:600;font-size:.82rem">${e?e.name:'؟'}</div>
+                  <div class="text-xs text-muted">${fmtDate(r.date)} · ${dayName(r.date)}</div></div>
+              </div>
+              <div class="flex" style="gap:.4rem;flex-shrink:0">
+                <span class="mono text-muted" style="font-size:.75rem">${(r.checkIn||'').substring(0,5)}</span>
+                <span class="badge bg-amber">+${r.lateMin}د</span>
+              </div>
+            </div>
+          </div>`;}).join('')
+        : `<div class="empty-state"><div class="ei">✅</div><p>لا تأخيرات في هذه الفترة</p></div>`}
+    </div>`;
+}
+
+function buildAbsentReport(){
+  const from=document.getElementById('vaf').value, to=document.getElementById('vat').value;
+  if(!from||!to){toast('⚠️ حدد الفترة','err');return}
+  const days=[]; const cur=new Date(from+'T12:00:00'); const end=new Date(to+'T12:00:00'); const today=isoToday();
+  while(cur<=end){const ds=cur.toISOString().split('T')[0];if(cur.getDay()!==FRIDAY&&ds<=today)days.push(ds);cur.setDate(cur.getDate()+1);}
+  absentVData=[];
+  employees.filter(e=>e.active!==false).forEach(e=>{
+    days.forEach(d=>{const r=getRecord(e.id,d);if(!r||r.status==='absent')absentVData.push({date:d,name:e.name,department:e.department||'—',status:r?r.status:'absent'});});
+  });
+  absentVData.sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('absentOut').innerHTML=`
+    <div class="rep-sum">
+      <div class="rep-box rb-red"><div class="rv" style="color:var(--red)">${absentVData.length}</div><div class="rl">غياب</div></div>
+    </div>
+    <div class="card">
+      ${absentVData.length
+        ? absentVData.map(r=>`
+          <div style="padding:.65rem 1rem;border-bottom:1px solid var(--border)" class="flex-between">
+            <div><div style="font-weight:600;font-size:.82rem">${r.name}</div>
+              <div class="text-xs text-muted">${r.department}</div></div>
+            <div class="flex" style="gap:.4rem;flex-shrink:0">
+              <span class="text-xs text-muted">${fmtDate(r.date)}</span>
+              <span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span>
+            </div>
+          </div>`).join('')
+        : `<div class="empty-state"><div class="ei">🎉</div><p>لا غيابات في هذه الفترة</p></div>`}
+    </div>`;
+}
+
+function buildEmpReport(){
+  const empId=document.getElementById('re').value;
+  const from=document.getElementById('ref').value, to=document.getElementById('ret').value;
+  if(!empId){toast('⚠️ اختر موظفاً','err');return}
+  const e=employees.find(x=>x.id===empId); if(!e) return;
+  const days=[]; const cur=new Date(from+'T12:00:00'); const end=new Date(to+'T12:00:00'); const today=isoToday();
+  while(cur<=end){const ds=cur.toISOString().split('T')[0];if(cur.getDay()!==FRIDAY&&ds<=today)days.push(ds);cur.setDate(cur.getDate()+1);}
+  let present=0,absent=0,totalLate=0,lateDays=0,totalHours=0;
+  empRepData=days.map(d=>{
+    const r=getRecord(empId,d)||{status:'absent'};
+    if(r.status==='present'){present++;if(r.lateMin>0){lateDays++;totalLate+=r.lateMin;}const h=calcWorkHours(r.checkIn,r.checkOut);if(h)totalHours+=parseFloat(h);}
+    else absent++;
+    return{date:d,...r};
+  });
+  document.getElementById('empRepOut').innerHTML=`
+    <div class="rep-sum">
+      <div class="rep-box rb-green"><div class="rv" style="color:var(--green)">${present}</div><div class="rl">حضور</div></div>
+      <div class="rep-box rb-red"><div class="rv" style="color:var(--red)">${absent}</div><div class="rl">غياب</div></div>
+      <div class="rep-box rb-amber"><div class="rv" style="color:var(--amber)">${totalLate}</div><div class="rl">دق. تأخير</div></div>
+      <div class="rep-box rb-blue"><div class="rv" style="color:var(--blue)">${totalHours.toFixed(0)}</div><div class="rl">ساعات</div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3>${e.name}</h3></div>
+      ${empRepData.map(r=>{
+        const hrs=calcWorkHours(r.checkIn,r.checkOut);
+        return`<div style="padding:.6rem 1rem;border-bottom:1px solid var(--border)" class="flex-between">
+          <div><div class="text-xs text-muted">${fmtDate(r.date)} · ${dayName(r.date)}</div>
+            <div class="flex mt1" style="gap:.35rem;flex-wrap:wrap">
+              <span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span>
+              ${r.status==='present'?`
+                <span class="mono text-muted" style="font-size:.7rem">${(r.checkIn||'').substring(0,5)} - ${r.checkOut?(r.checkOut.substring(0,5)):'؟'}</span>
+                ${r.lateMin>0?`<span class="badge bg-amber">+${r.lateMin}د</span>`:''}
+                ${hrs?`<span class="badge bg-gray">${hrs}h</span>`:''}
+              `:''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ═══════════════════════════════
+//  EXCEL EXPORT
+// ═══════════════════════════════
+function makeWB(sheets){ const wb=XLSX.utils.book_new(); sheets.forEach(({name,data,h,cw})=>{const ws=XLSX.utils.aoa_to_sheet([h,...data]);if(cw)ws['!cols']=cw.map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,name);}); return wb; }
+function dlXL(wb,fn){ XLSX.writeFile(wb,fn+'.xlsx'); toast('📥 تم التصدير','ok'); }
+
+function exportTodayExcel(){
+  const today=isoToday();
+  const data=employees.filter(e=>e.active!==false).map(e=>{
+    const r=getRecord(e.id,today);
+    return[e.name,e.department||'',r?statusLabel(r.status):'غائب',r&&r.checkIn?r.checkIn.substring(0,5):'',r&&r.checkOut?r.checkOut.substring(0,5):'',r&&r.lateMin>0?r.lateMin:0,r?calcWorkHours(r.checkIn,r.checkOut)||'':''];
+  });
+  dlXL(makeWB([{name:'اليوم',data,h:['الموظف','القسم','الحالة','دخول','خروج','تأخير (د)','ساعات'],cw:[22,16,12,10,10,12,10]}]),`حضور_${today}`);
+}
+
+function exportAttExcel(){
+  const date=document.getElementById('attDate').value||isoToday();
+  const data=employees.filter(e=>e.active!==false).map(e=>{
+    const r=getRecord(e.id,date);
+    return[e.name,e.department||'',r?statusLabel(r.status):'غائب',r&&r.checkIn?r.checkIn.substring(0,5):'',r&&r.checkOut?r.checkOut.substring(0,5):'',r&&r.lateMin>0?r.lateMin:0,r&&r.notes||''];
+  });
+  dlXL(makeWB([{name:'الحضور',data,h:['الموظف','القسم','الحالة','دخول','خروج','تأخير (د)','ملاحظات'],cw:[22,16,12,10,10,12,20]}]),`حضور_${date}`);
+}
+
+function exportMonthlyExcel(){
+  if(!monthlyData.length){toast('⚠️ عرض التقرير أولاً','err');return}
+  const data=monthlyData.map(e=>[e.name,e.department||'',e.workDays,e.present,e.absent,e.vacation,e.sick,e.lateDays,e.totalLate,e.totalHours,e.pct+'%']);
+  dlXL(makeWB([{name:'شهري',data,h:['الموظف','القسم','أيام','حضور','غياب','إجازات','مرضية','أيام تأخير','دق. تأخير','ساعات','نسبة'],cw:[22,16,8,8,8,8,8,12,12,10,10]}]),`شهري_${document.getElementById('ry').value}_${document.getElementById('rm').value}`);
+}
+
+function exportEmpExcel(){
+  if(!empRepData.length){toast('⚠️ عرض التقرير أولاً','err');return}
+  const eid=document.getElementById('re').value; const e=employees.find(x=>x.id===eid);
+  const data=empRepData.map(r=>[fmtDate(r.date),dayName(r.date),statusLabel(r.status),r.checkIn?r.checkIn.substring(0,5):'',r.checkOut?r.checkOut.substring(0,5):'',r.lateMin||0,calcWorkHours(r.checkIn,r.checkOut)||'']);
+  dlXL(makeWB([{name:'موظف',data,h:['التاريخ','اليوم','الحالة','دخول','خروج','تأخير','ساعات'],cw:[14,12,12,10,10,10,10]}]),`تقرير_${e?e.name:'موظف'}`);
+}
+
+function exportViolationsExcel(type){
+  if(type==='late'){
+    if(!lateVData.length){toast('⚠️ عرض التقرير أولاً','err');return}
+    const data=lateVData.map(r=>{const e=employees.find(x=>x.id===r.empId);return[fmtDate(r.date),dayName(r.date),e?e.name:'؟',e?e.department||'':'',r.checkIn?r.checkIn.substring(0,5):'',r.lateMin];});
+    dlXL(makeWB([{name:'تأخيرات',data,h:['التاريخ','اليوم','الموظف','القسم','دخول','تأخير (د)'],cw:[14,12,22,16,10,12]}]),'تقرير_التأخيرات');
+  } else {
+    if(!absentVData.length){toast('⚠️ عرض التقرير أولاً','err');return}
+    const data=absentVData.map(r=>[fmtDate(r.date),dayName(r.date),r.name,r.department,statusLabel(r.status)]);
+    dlXL(makeWB([{name:'غيابات',data,h:['التاريخ','اليوم','الموظف','القسم','الحالة'],cw:[14,12,22,16,12]}]),'تقرير_الغيابات');
+  }
+}
+
+// ═══════════════════════════════
+//  MODALS & UTILS
+// ═══════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open') }
+function closeModal(id){ document.getElementById(id).classList.remove('open') }
+
+function toast(msg,type='info'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=type;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function populateEmpSelect(id){
+  const sel=document.getElementById(id); if(!sel) return;
+  const cur=sel.value;
+  const hasAll=sel.options.length>0&&sel.options[0].value==='';
+  sel.innerHTML=(hasAll?'<option value="">الكل</option>':'')+
+    employees.filter(e=>e.active!==false).map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+function updateAllEmpSelects(){ ['attEmpFilter','att_emp','re'].forEach(populateEmpSelect) }
+
+function confirmDel(type,key,msg){
+  document.getElementById('delMsg').textContent=msg;
+  document.getElementById('delConfirmBtn').onclick=()=>{
+    if(type==='emp'){
+      const i=employees.findIndex(e=>e.id===key);
+      if(i!==-1){employees.splice(i,1);saveAll();}
+      toast('🗑️ تم الحذف','ok'); renderEmployees();
+    } else if(type==='att'){
+      const parts=key.split('_'); delRecord(parts[0],parts.slice(1).join('_'));
+      toast('🗑️ تم الحذف','ok');
+      if(currentPage==='attendance') loadAttDate();
+    }
+    closeModal('delOverlay');
+    if(currentPage==='dashboard') renderDashboard();
+  };
+  openModal('delOverlay');
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open')); });
+
+// ═══════════════════════════════
+//  INIT
+// ═══════════════════════════════
+(async function(){
+  document.getElementById('attDate').value=isoToday();
+  // Load from Firebase, fallback to local cache
+  await loadFromFirebase();
+  updateAllEmpSelects();
+  renderDashboard();
+  startRealtimeSync();
+})();
+</script>
+</body>
+</html>
