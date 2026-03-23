@@ -306,9 +306,138 @@ td{padding:.6rem .75rem;vertical-align:middle}
 /* ═══════════════════════ PROGRESS BAR ═══════════════════════ */
 .prog-wrap{height:5px;background:var(--border);border-radius:3px;margin-top:.35rem}
 .prog-fill{height:100%;border-radius:3px;transition:width .4s}
+
+/* ═══════════════════════ LOGIN SCREEN ═══════════════════════ */
+#loginScreen{
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(145deg,#0a1f42 0%,#0f2b5b 50%,#1a3a6e 100%);
+  display:flex;align-items:center;justify-content:center;padding:1.5rem;
+  transition:opacity .4s ease,transform .4s ease;
+}
+#loginScreen.hide{opacity:0;transform:scale(1.04);pointer-events:none}
+.login-card{
+  background:#fff;border-radius:22px;width:100%;max-width:380px;
+  box-shadow:0 24px 80px rgba(0,0,0,.45);overflow:hidden;
+  animation:loginIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes loginIn{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.login-top{
+  background:linear-gradient(135deg,#0f2b5b,#1d4ed8);
+  padding:2.2rem 2rem 1.8rem;text-align:center;
+}
+.login-logo{
+  width:64px;height:64px;border-radius:18px;
+  background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;margin:0 auto 1rem;
+}
+.login-top h2{color:#fff;font-size:1.3rem;font-weight:800;margin-bottom:4px}
+.login-top p{color:rgba(255,255,255,.6);font-size:.8rem}
+.login-body{padding:1.8rem 1.8rem 1.2rem}
+.login-body .fg{margin-bottom:1rem}
+.login-body .fg label{
+  font-size:.7rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px
+}
+.login-inp-wrap{position:relative}
+.login-inp-wrap .inp-icon{
+  position:absolute;right:.8rem;top:50%;transform:translateY(-50%);
+  font-size:.95rem;color:var(--muted);pointer-events:none;
+}
+.login-body input[type=text],.login-body input[type=password]{
+  width:100%;padding:.72rem .8rem .72rem 2.4rem;
+  border:1.5px solid var(--border);border-radius:10px;
+  font-family:inherit;font-size:15px;color:var(--text);
+  background:var(--bg);outline:none;direction:ltr;text-align:right;
+  transition:border .18s,box-shadow .18s;min-height:44px;
+}
+.login-body input[type=text]:focus,.login-body input[type=password]:focus{
+  border-color:var(--lblue);box-shadow:0 0 0 3px rgba(59,130,246,.12);background:#fff
+}
+.inp-err{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(220,38,38,.1)!important}
+.login-err-box{
+  background:var(--lred);border:1px solid #fecaca;border-radius:9px;
+  padding:.65rem .9rem;font-size:.8rem;color:var(--red);font-weight:600;
+  margin-bottom:1rem;display:none;align-items:center;gap:7px;
+}
+.login-err-box.show{display:flex}
+.remember-row{
+  display:flex;align-items:center;gap:.5rem;margin-bottom:1.2rem;cursor:pointer;
+}
+.remember-row input[type=checkbox]{
+  width:16px;height:16px;accent-color:var(--blue);cursor:pointer;
+  padding:0!important;min-height:unset!important;border:unset!important;background:unset!important;
+}
+.remember-row span{font-size:.8rem;color:var(--muted);font-weight:600}
+.btn-login{
+  width:100%;padding:.88rem;border:none;border-radius:11px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;
+  font-family:inherit;font-size:1rem;font-weight:800;cursor:pointer;
+  box-shadow:0 4px 16px rgba(29,78,216,.35);transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;
+}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(29,78,216,.45)}
+.btn-login:active{transform:translateY(0)}
+.btn-login:disabled{opacity:.65;cursor:not-allowed;transform:none!important}
+.login-footer{
+  padding:.8rem 1.8rem 1.4rem;text-align:center;border-top:1px solid var(--border);
+}
+.login-footer p{font-size:.7rem;color:var(--light)}
+#logoutBtn{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:rgba(255,255,255,.85);border-radius:8px;padding:5px 10px;
+  font-size:.72rem;font-family:inherit;font-weight:700;cursor:pointer;
+  display:none;align-items:center;gap:4px;transition:all .15s;
+}
+#logoutBtn:hover{background:rgba(220,38,38,.25);border-color:rgba(220,38,38,.4);color:#fff}
 </style>
 </head>
 <body>
+
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-top">
+      <div class="login-logo">⏱</div>
+      <h2>نظام إدارة الدوام</h2>
+      <p>تسجيل دخول المدير</p>
+    </div>
+    <div class="login-body">
+      <div class="login-err-box" id="loginErrBox">
+        <span>⚠️</span><span id="loginErrMsg">بيانات خاطئة</span>
+      </div>
+      <div class="fg">
+        <label>اسم المستخدم</label>
+        <div class="login-inp-wrap">
+          <span class="inp-icon">👤</span>
+          <input type="text" id="loginUser" placeholder="أدخل اسم المستخدم"
+            autocomplete="username"
+            onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        </div>
+      </div>
+      <div class="fg">
+        <label>كلمة المرور</label>
+        <div class="login-inp-wrap">
+          <span class="inp-icon">🔒</span>
+          <input type="password" id="loginPass" placeholder="أدخل كلمة المرور"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+      </div>
+      <label class="remember-row">
+        <input type="checkbox" id="rememberMe" checked>
+        <span>تذكرني في هذا الجهاز (30 يوم)</span>
+      </label>
+      <button class="btn-login" id="loginBtn" onclick="doLogin()">
+        <span>🔓</span> دخول
+      </button>
+    </div>
+    <div class="login-footer">
+      <p>🔐 الدخول مقيّد بالمديرين فقط</p>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ HEADER ══════════════ -->
 <header id="appHeader">
@@ -321,6 +450,7 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <span>🔄</span><span style="font-size:.72rem;color:#93c5fd;font-weight:700">جاري الاتصال...</span>
     </div>
     <span class="hdr-clock" id="clk">00:00</span>
+    <button id="logoutBtn" onclick="doLogout()">🚪 خروج</button>
   </div>
 </header>
 
@@ -678,53 +808,45 @@ td{padding:.6rem .75rem;vertical-align:middle}
 
 <div id="toast"></div>
 
-<!-- ══════════════ JAVASCRIPT ══════════════ -->
+<!-- ══════════════ FIREBASE (module) ══════════════ -->
 <script type="module">
-// ═══════════════════════════════
+import { initializeApp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyBUc8_r3WLH3HtQDyzZVF1r_uaY_1a1ySw",
+  authDomain:        "workshop-attendance-508ca.firebaseapp.com",
+  databaseURL:       "https://workshop-attendance-508ca-default-rtdb.firebaseio.com",
+  projectId:         "workshop-attendance-508ca",
+  storageBucket:     "workshop-attendance-508ca.firebasestorage.app",
+  messagingSenderId: "680519493916",
+  appId:             "1:680519493916:web:123d596edda0ce2a94b2d9"
+};
+
+const _app = initializeApp(firebaseConfig);
+const _db  = getDatabase(_app);
+
+// نكشف دوال Firebase للسكريبت العادي
+window._fbSet    = (path, val) => set(ref(_db, path), val);
+window._fbGet    = (path)      => get(ref(_db, path));
+window._fbListen = (path, cb)  => onValue(ref(_db, path), cb);
+</script>
+
+<!-- ══════════════ JAVASCRIPT ══════════════ -->
+<script>
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
 const WORK_START = '08:00';
 const WORK_END   = '16:00';
 const FRIDAY     = 5;
 
-// ═══════════════════════════════
-//  FIREBASE CONFIG
-//  ⚙️ ضع إعدادات Firebase الخاصة بك هنا
-// ═══════════════════════════════
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBUc8_r3WLH3HtQDyzZVF1r_uaY_1a1ySw",
-  authDomain: "workshop-attendance-508ca.firebaseapp.com",
-  databaseURL: "https://workshop-attendance-508ca-default-rtdb.firebaseio.com",
-  projectId: "workshop-attendance-508ca",
-  storageBucket: "workshop-attendance-508ca.firebasestorage.app",
-  messagingSenderId: "680519493916",
-  appId: "1:680519493916:web:123d596edda0ce2a94b2d9"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-// ═══════════════════════════════
-//  FIREBASE INIT
-// ═══════════════════════════════
-import { initializeApp }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, collection,
-         getDoc, getDocs, setDoc, deleteDoc,
-         onSnapshot, writeBatch }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const _app = initializeApp(FIREBASE_CONFIG);
-const db   = getFirestore(_app);
-
-// ─── Sync state ────────────────
-let _syncStatus = 'connecting'; // connecting | online | offline | error
-let _pendingWrites = JSON.parse(localStorage.getItem('_pending')||'[]');
-
+// ══════════════════════════════════════════════
+//  SYNC UI
+// ══════════════════════════════════════════════
 function setSyncUI(s){
-  _syncStatus = s;
   const el = document.getElementById('syncBadge');
   if(!el) return;
   const map = {
@@ -738,45 +860,40 @@ function setSyncUI(s){
   el.innerHTML = `<span>${ic}</span><span style="font-size:.72rem;color:${col};font-weight:700">${lbl}</span>`;
 }
 
-// ─── DATA LAYER ────────────────
+// ══════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════
 let employees  = JSON.parse(localStorage.getItem('att_employees')||'[]');
 let attendance = JSON.parse(localStorage.getItem('att_records')  ||'{}');
 
-// Save locally immediately, then push to Firestore
 async function saveAll(){
   localStorage.setItem('att_employees', JSON.stringify(employees));
   localStorage.setItem('att_records',   JSON.stringify(attendance));
-  await pushToFirebase();
-}
-
-async function pushToFirebase(){
   setSyncUI('saving');
   try {
-    const batch = writeBatch(db);
-    // employees doc
-    batch.set(doc(db,'workshop','employees'), { list: employees });
-    // attendance doc (split by date-chunks to stay under 1MB)
-    batch.set(doc(db,'workshop','attendance'), { records: attendance });
-    await batch.commit();
+    if(window._fbSet){
+      await Promise.all([
+        window._fbSet('workshop/employees', employees),
+        window._fbSet('workshop/attendance', attendance)
+      ]);
+    }
     setSyncUI('online');
-    localStorage.removeItem('_pending');
   } catch(e){
     setSyncUI('offline');
-    localStorage.setItem('_pending','1');
-    console.warn('Firebase write failed – data saved locally', e);
+    console.warn('Firebase write failed – saved locally', e);
   }
 }
 
 async function loadFromFirebase(){
   setSyncUI('connecting');
   try {
+    if(!window._fbGet){ setSyncUI('offline'); return; }
     const [empSnap, attSnap] = await Promise.all([
-      getDoc(doc(db,'workshop','employees')),
-      getDoc(doc(db,'workshop','attendance'))
+      window._fbGet('workshop/employees'),
+      window._fbGet('workshop/attendance')
     ]);
-    if(empSnap.exists())  employees  = empSnap.data().list    || [];
-    if(attSnap.exists())  attendance = attSnap.data().records || {};
-    // sync local cache
+    if(empSnap.exists())  employees  = empSnap.val() || [];
+    if(attSnap.exists())  attendance = attSnap.val() || {};
     localStorage.setItem('att_employees', JSON.stringify(employees));
     localStorage.setItem('att_records',   JSON.stringify(attendance));
     setSyncUI('online');
@@ -786,30 +903,31 @@ async function loadFromFirebase(){
   }
 }
 
-// Real-time listener – updates UI when another device changes data
 function startRealtimeSync(){
-  onSnapshot(doc(db,'workshop','employees'), snap => {
-    if(snap.exists()){
-      employees = snap.data().list || [];
-      localStorage.setItem('att_employees', JSON.stringify(employees));
-      if(currentPage==='employees') renderEmployees();
-      if(currentPage==='dashboard') renderDashboard();
-      updateAllEmpSelects();
-    }
+  if(!window._fbListen) return;
+  window._fbListen('workshop/employees', snap => {
+    if(!snap.exists()) return;
+    const val = snap.val();
+    if(JSON.stringify(val)===JSON.stringify(employees)) return;
+    employees = val || [];
+    localStorage.setItem('att_employees', JSON.stringify(employees));
+    updateAllEmpSelects();
+    if(currentPage==='employees') renderEmployees();
+    if(currentPage==='dashboard') renderDashboard();
   });
-  onSnapshot(doc(db,'workshop','attendance'), snap => {
-    if(snap.exists()){
-      attendance = snap.data().records || {};
-      localStorage.setItem('att_records', JSON.stringify(attendance));
-      if(currentPage==='dashboard')  renderDashboard();
-      if(currentPage==='today')      renderToday();
-      if(currentPage==='attendance') renderAttPage();
-    }
+  window._fbListen('workshop/attendance', snap => {
+    if(!snap.exists()) return;
+    const val = snap.val();
+    if(JSON.stringify(val)===JSON.stringify(attendance)) return;
+    attendance = val || {};
+    localStorage.setItem('att_records', JSON.stringify(attendance));
+    if(currentPage==='dashboard')  renderDashboard();
+    if(currentPage==='today')      renderToday();
+    if(currentPage==='attendance') renderAttPage();
   });
 }
 
-// Online/offline events
-window.addEventListener('online',  () => { setSyncUI('connecting'); pushToFirebase(); });
+window.addEventListener('online',  () => { setSyncUI('connecting'); saveAll(); });
 window.addEventListener('offline', () => setSyncUI('offline'));
 
 // ═══════════════════════════════
@@ -1577,16 +1695,116 @@ function confirmDel(type,key,msg){
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open')); });
 
-// ═══════════════════════════════
+// ══════════════════════════════════════════════
+//  AUTH — تسجيل الدخول
+// ══════════════════════════════════════════════
+const ADMINS = [
+  { username: 'admin', password: 'admin123' },
+  { username: 'مدير',  password: '1234'     },
+];
+const SESSION_KEY = 'att_session_v1';
+
+function checkSession(){
+  try{
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if(!s || !s.ts) return false;
+    const maxAge = s.remember ? 30*24*60*60*1000 : 2*60*60*1000;
+    return (Date.now() - s.ts) < maxAge;
+  }catch(e){ return false; }
+}
+function saveSession(remember){
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ts:Date.now(), remember}));
+}
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+function showApp(){
+  const ls = document.getElementById('loginScreen');
+  ls.classList.add('hide');
+  document.getElementById('logoutBtn').style.display = 'flex';
+  setTimeout(()=>{ ls.style.display='none'; }, 420);
+}
+function showLogin(){
+  const ls = document.getElementById('loginScreen');
+  ls.style.display = 'flex';
+  ls.classList.remove('hide');
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginErrBox').classList.remove('show');
+  ['loginUser','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
+  setTimeout(()=>document.getElementById('loginUser').focus(), 350);
+}
+
+function doLogin(){
+  const user    = document.getElementById('loginUser').value.trim();
+  const pass    = document.getElementById('loginPass').value;
+  const remember= document.getElementById('rememberMe').checked;
+  const btn     = document.getElementById('loginBtn');
+  const errBox  = document.getElementById('loginErrBox');
+  const errMsg  = document.getElementById('loginErrMsg');
+
+  errBox.classList.remove('show');
+  ['loginUser','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
+
+  if(!user){
+    errMsg.textContent='يرجى إدخال اسم المستخدم';
+    errBox.classList.add('show');
+    document.getElementById('loginUser').classList.add('inp-err');
+    return;
+  }
+  if(!pass){
+    errMsg.textContent='يرجى إدخال كلمة المرور';
+    errBox.classList.add('show');
+    document.getElementById('loginPass').classList.add('inp-err');
+    return;
+  }
+
+  const match = ADMINS.find(a => a.username===user && a.password===pass);
+  if(!match){
+    errMsg.textContent='اسم المستخدم أو كلمة المرور غير صحيحة';
+    errBox.classList.add('show');
+    ['loginUser','loginPass'].forEach(id=>document.getElementById(id).classList.add('inp-err'));
+    const card = document.querySelector('.login-card');
+    card.style.animation='none'; card.offsetHeight;
+    card.style.animation='shake .4s ease';
+    return;
+  }
+
+  btn.disabled=true;
+  btn.innerHTML='<span>⏳</span> جاري الدخول...';
+  saveSession(remember);
+
+  setTimeout(()=>{
+    showApp();
+    btn.disabled=false;
+    btn.innerHTML='<span>🔓</span> دخول';
+    updateAllEmpSelects();
+    renderDashboard();
+    startRealtimeSync();
+  }, 500);
+}
+
+function doLogout(){
+  clearSession();
+  showLogin();
+}
+
+// ══════════════════════════════════════════════
 //  INIT
-// ═══════════════════════════════
+// ══════════════════════════════════════════════
 (async function(){
-  document.getElementById('attDate').value=isoToday();
-  // Load from Firebase, fallback to local cache
+  document.getElementById('attDate').value = isoToday();
   await loadFromFirebase();
-  updateAllEmpSelects();
-  renderDashboard();
-  startRealtimeSync();
+
+  if(checkSession()){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('logoutBtn').style.display   = 'flex';
+    updateAllEmpSelects();
+    renderDashboard();
+    startRealtimeSync();
+  } else {
+    showLogin();
+  }
 })();
 </script>
 </body>
