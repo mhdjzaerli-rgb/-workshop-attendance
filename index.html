@@ -408,14 +408,6 @@ td{padding:.6rem .75rem;vertical-align:middle}
         <span>⚠️</span><span id="loginErrMsg">بيانات خاطئة</span>
       </div>
       <div class="fg">
-        <label>اسم المستخدم</label>
-        <div class="login-inp-wrap">
-          <input type="text" id="loginUser" placeholder="أدخل اسم المستخدم"
-            autocomplete="username"
-            onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-        </div>
-      </div>
-      <div class="fg">
         <label>كلمة المرور</label>
         <div class="login-inp-wrap">
           <input type="password" id="loginPass" placeholder="أدخل كلمة المرور"
@@ -695,15 +687,10 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <div class="fg mb1"><label>الاسم الكامل <span class="req">*</span></label>
         <input type="text" id="em_name" placeholder="اسم الموظف"></div>
       <div class="fgrid">
-        <div class="fg"><label>القسم</label>
-          <input type="text" id="em_dept" list="deptList" placeholder="المحاسبة...">
-          <datalist id="deptList"></datalist></div>
-        <div class="fg"><label>المنصب</label>
-          <input type="text" id="em_pos" placeholder="محاسب..."></div>
         <div class="fg"><label>الهاتف</label>
           <input type="tel" id="em_phone" placeholder="05xxxxxxxx"></div>
-        <div class="fg"><label>البريد</label>
-          <input type="email" id="em_email" placeholder="email@..."></div>
+        <div class="fg"><label>الراتب</label>
+          <input type="number" id="em_salary" placeholder="0" min="0"></div>
         <div class="fg"><label>وقت الدوام</label>
           <input type="time" id="em_start" value="08:00"></div>
         <div class="fg"><label>سماح (دقيقة)</label>
@@ -1215,6 +1202,7 @@ function renderEmployees(){
           </div>
           <div class="emp-meta">
             ${e.phone?`<span class="badge bg-gray">📞 ${e.phone}</span>`:''}
+            ${e.salary?`<span class="badge bg-green">💰 ${e.salary.toLocaleString()}</span>`:''}
             <span class="badge bg-gray">⏰ ${e.startTime||'08:00'}</span>
             ${e.graceMins>0?`<span class="badge bg-amber">سماح ${e.graceMins}د</span>`:''}
           </div>
@@ -1231,13 +1219,12 @@ function renderEmployees(){
 
 function openAddEmp(){
   editingEmpId=null;
-  ['em_name','em_dept','em_pos','em_phone','em_email'].forEach(id=>document.getElementById(id).value='');
+  ['em_name','em_phone'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('em_salary').value='';
   document.getElementById('em_start').value='08:00';
   document.getElementById('em_grace').value='0';
   document.getElementById('em_join').value='';
   document.getElementById('empSheetTitle').textContent='إضافة موظف جديد';
-  const depts=[...new Set(employees.map(e=>e.department).filter(Boolean))];
-  document.getElementById('deptList').innerHTML=depts.map(d=>`<option value="${d}">`).join('');
   openModal('empOverlay');
 }
 
@@ -1245,10 +1232,8 @@ function openEditEmp(id){
   editingEmpId=id;
   const e=employees.find(x=>x.id===id); if(!e) return;
   document.getElementById('em_name').value=e.name||'';
-  document.getElementById('em_dept').value=e.department||'';
-  document.getElementById('em_pos').value=e.position||'';
   document.getElementById('em_phone').value=e.phone||'';
-  document.getElementById('em_email').value=e.email||'';
+  document.getElementById('em_salary').value=e.salary||'';
   document.getElementById('em_start').value=e.startTime||'08:00';
   document.getElementById('em_grace').value=e.graceMins||0;
   document.getElementById('em_join').value=e.joinDate||'';
@@ -1260,10 +1245,8 @@ function saveEmployee(){
   const name=document.getElementById('em_name').value.trim();
   if(!name){toast('⚠️ أدخل اسم الموظف','err');return}
   const data={name,
-    department:document.getElementById('em_dept').value.trim(),
-    position:document.getElementById('em_pos').value.trim(),
     phone:document.getElementById('em_phone').value.trim(),
-    email:document.getElementById('em_email').value.trim(),
+    salary:parseFloat(document.getElementById('em_salary').value)||0,
     startTime:document.getElementById('em_start').value,
     graceMins:parseInt(document.getElementById('em_grace').value)||0,
     joinDate:document.getElementById('em_join').value, active:true};
@@ -1284,7 +1267,7 @@ let editingAttKey=null;
 
 function renderAttPage(){
   const d=document.getElementById('attDate');
-  if(!d.value) d.value=isoToday();
+  d.value=isoToday();
   populateEmpSelect('attEmpFilter');
   loadAttDate();
 }
@@ -1835,15 +1818,13 @@ function showLogin(){
   ls.classList.remove('hide');
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('backupBtn').style.display = 'none';
-  document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
   document.getElementById('loginErrBox').classList.remove('show');
-  ['loginUser','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
-  setTimeout(()=>document.getElementById('loginUser').focus(), 350);
+  document.getElementById('loginPass').classList.remove('inp-err');
+  setTimeout(()=>document.getElementById('loginPass').focus(), 350);
 }
 
 function doLogin(){
-  const user    = document.getElementById('loginUser').value.trim();
   const pass    = document.getElementById('loginPass').value;
   const remember= document.getElementById('rememberMe').checked;
   const btn     = document.getElementById('loginBtn');
@@ -1851,14 +1832,8 @@ function doLogin(){
   const errMsg  = document.getElementById('loginErrMsg');
 
   errBox.classList.remove('show');
-  ['loginUser','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
+  document.getElementById('loginPass').classList.remove('inp-err');
 
-  if(!user){
-    errMsg.textContent='يرجى إدخال اسم المستخدم';
-    errBox.classList.add('show');
-    document.getElementById('loginUser').classList.add('inp-err');
-    return;
-  }
   if(!pass){
     errMsg.textContent='يرجى إدخال كلمة المرور';
     errBox.classList.add('show');
@@ -1866,11 +1841,12 @@ function doLogin(){
     return;
   }
 
-  const match = ADMINS.find(a => a.username===user && a.password===pass);
+  const PASSWORDS = ['admin123','1234'];
+  const match = PASSWORDS.includes(pass);
   if(!match){
-    errMsg.textContent='اسم المستخدم أو كلمة المرور غير صحيحة';
+    errMsg.textContent='كلمة المرور غير صحيحة';
     errBox.classList.add('show');
-    ['loginUser','loginPass'].forEach(id=>document.getElementById(id).classList.add('inp-err'));
+    document.getElementById('loginPass').classList.add('inp-err');
     const card = document.querySelector('.login-card');
     card.style.animation='none'; card.offsetHeight;
     card.style.animation='shake .4s ease';
