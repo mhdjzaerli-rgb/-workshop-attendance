@@ -407,14 +407,7 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <div class="login-err-box" id="loginErrBox">
         <span>⚠️</span><span id="loginErrMsg">بيانات خاطئة</span>
       </div>
-      <div class="fg">
-        <label>البريد الإلكتروني</label>
-        <div class="login-inp-wrap">
-          <input type="email" id="loginEmail" placeholder="أدخل البريد الإلكتروني"
-            autocomplete="email"
-            onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-        </div>
-      </div>
+      <input type="hidden" id="loginEmail" value="admin@workshop.com">
       <div class="fg">
         <label>كلمة المرور</label>
         <div class="login-inp-wrap">
@@ -1828,11 +1821,10 @@ function showLogin(){
   ls.classList.remove('hide');
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('backupBtn').style.display = 'none';
-  document.getElementById('loginEmail').value = '';
   document.getElementById('loginPass').value = '';
   document.getElementById('loginErrBox').classList.remove('show');
-  ['loginEmail','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
-  setTimeout(()=>document.getElementById('loginEmail').focus(), 350);
+  document.getElementById('loginPass').classList.remove('inp-err');
+  setTimeout(()=>document.getElementById('loginPass').focus(), 350);
 }
 
 async function doLogin(){
@@ -1844,14 +1836,8 @@ async function doLogin(){
   const errMsg  = document.getElementById('loginErrMsg');
 
   errBox.classList.remove('show');
-  ['loginEmail','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
+  document.getElementById('loginPass').classList.remove('inp-err');
 
-  if(!email){
-    errMsg.textContent='يرجى إدخال البريد الإلكتروني';
-    errBox.classList.add('show');
-    document.getElementById('loginEmail').classList.add('inp-err');
-    return;
-  }
   if(!pass){
     errMsg.textContent='يرجى إدخال كلمة المرور';
     errBox.classList.add('show');
@@ -1868,12 +1854,11 @@ async function doLogin(){
   } catch(err){
     btn.disabled = false;
     btn.innerHTML = '<span>🔓</span> دخول';
-    let msg = 'البريد أو كلمة المرور غير صحيحة';
-    if(err.code === 'auth/invalid-email') msg = 'صيغة البريد الإلكتروني غير صحيحة';
+    let msg = 'كلمة المرور غير صحيحة';
     if(err.code === 'auth/too-many-requests') msg = 'محاولات كثيرة، حاول لاحقاً';
     errMsg.textContent = msg;
     errBox.classList.add('show');
-    ['loginEmail','loginPass'].forEach(id=>document.getElementById(id).classList.add('inp-err'));
+    document.getElementById('loginPass').classList.add('inp-err');
     const card = document.querySelector('.login-card');
     card.style.animation='none'; card.offsetHeight;
     card.style.animation='shake .4s ease';
