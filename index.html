@@ -408,6 +408,14 @@ td{padding:.6rem .75rem;vertical-align:middle}
         <span>⚠️</span><span id="loginErrMsg">بيانات خاطئة</span>
       </div>
       <div class="fg">
+        <label>البريد الإلكتروني</label>
+        <div class="login-inp-wrap">
+          <input type="email" id="loginEmail" placeholder="أدخل البريد الإلكتروني"
+            autocomplete="email"
+            onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        </div>
+      </div>
+      <div class="fg">
         <label>كلمة المرور</label>
         <div class="login-inp-wrap">
           <input type="password" id="loginPass" placeholder="أدخل كلمة المرور"
@@ -840,6 +848,15 @@ import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyBUc8_r3WLH3HtQDyzZVF1r_uaY_1a1ySw",
@@ -851,13 +868,23 @@ const firebaseConfig = {
   appId:             "1:680519493916:web:123d596edda0ce2a94b2d9"
 };
 
-const _app = initializeApp(firebaseConfig);
-const _db  = getDatabase(_app);
+const _app  = initializeApp(firebaseConfig);
+const _db   = getDatabase(_app);
+const _auth = getAuth(_app);
 
 // نكشف دوال Firebase للسكريبت العادي
 window._fbSet    = (path, val) => set(ref(_db, path), val);
 window._fbGet    = (path)      => get(ref(_db, path));
 window._fbListen = (path, cb)  => onValue(ref(_db, path), cb);
+
+// دوال المصادقة
+window._fbLogin = async (email, password, remember) => {
+  const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
+  await setPersistence(_auth, persistence);
+  return signInWithEmailAndPassword(_auth, email, password);
+};
+window._fbLogout = () => signOut(_auth);
+window._fbAuthReady = (callback) => onAuthStateChanged(_auth, callback);
 </script>
 
 <!-- ══════════════ JAVASCRIPT ══════════════ -->
@@ -1784,26 +1811,8 @@ document.getElementById('dropZone').addEventListener('click', ()=>{
 });
 
 // ══════════════════════════════════════════════
-//  AUTH — تسجيل الدخول
+//  AUTH — Firebase Authentication
 // ══════════════════════════════════════════════
-const ADMINS = [
-  { username: 'admin', password: 'admin123' },
-  { username: 'مدير',  password: '1234'     },
-];
-const SESSION_KEY = 'att_session_v1';
-
-function checkSession(){
-  try{
-    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
-    if(!s || !s.ts) return false;
-    const maxAge = s.remember ? 30*24*60*60*1000 : 2*60*60*1000;
-    return (Date.now() - s.ts) < maxAge;
-  }catch(e){ return false; }
-}
-function saveSession(remember){
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ts:Date.now(), remember}));
-}
-function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
 function showApp(){
   const ls = document.getElementById('loginScreen');
@@ -1812,19 +1821,22 @@ function showApp(){
   document.getElementById('backupBtn').style.display = 'flex';
   setTimeout(()=>{ ls.style.display='none'; }, 420);
 }
+
 function showLogin(){
   const ls = document.getElementById('loginScreen');
   ls.style.display = 'flex';
   ls.classList.remove('hide');
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('backupBtn').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
   document.getElementById('loginPass').value = '';
   document.getElementById('loginErrBox').classList.remove('show');
-  document.getElementById('loginPass').classList.remove('inp-err');
-  setTimeout(()=>document.getElementById('loginPass').focus(), 350);
+  ['loginEmail','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
+  setTimeout(()=>document.getElementById('loginEmail').focus(), 350);
 }
 
-function doLogin(){
+async function doLogin(){
+  const email   = document.getElementById('loginEmail').value.trim();
   const pass    = document.getElementById('loginPass').value;
   const remember= document.getElementById('rememberMe').checked;
   const btn     = document.getElementById('loginBtn');
@@ -1832,8 +1844,14 @@ function doLogin(){
   const errMsg  = document.getElementById('loginErrMsg');
 
   errBox.classList.remove('show');
-  document.getElementById('loginPass').classList.remove('inp-err');
+  ['loginEmail','loginPass'].forEach(id=>document.getElementById(id).classList.remove('inp-err'));
 
+  if(!email){
+    errMsg.textContent='يرجى إدخال البريد الإلكتروني';
+    errBox.classList.add('show');
+    document.getElementById('loginEmail').classList.add('inp-err');
+    return;
+  }
   if(!pass){
     errMsg.textContent='يرجى إدخال كلمة المرور';
     errBox.classList.add('show');
@@ -1841,34 +1859,29 @@ function doLogin(){
     return;
   }
 
-  const PASSWORDS = ['admin123','1234'];
-  const match = PASSWORDS.includes(pass);
-  if(!match){
-    errMsg.textContent='كلمة المرور غير صحيحة';
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> جاري الدخول...';
+
+  try {
+    await window._fbLogin(email, pass, remember);
+    // onAuthStateChanged ستستدعي showApp تلقائياً
+  } catch(err){
+    btn.disabled = false;
+    btn.innerHTML = '<span>🔓</span> دخول';
+    let msg = 'البريد أو كلمة المرور غير صحيحة';
+    if(err.code === 'auth/invalid-email') msg = 'صيغة البريد الإلكتروني غير صحيحة';
+    if(err.code === 'auth/too-many-requests') msg = 'محاولات كثيرة، حاول لاحقاً';
+    errMsg.textContent = msg;
     errBox.classList.add('show');
-    document.getElementById('loginPass').classList.add('inp-err');
+    ['loginEmail','loginPass'].forEach(id=>document.getElementById(id).classList.add('inp-err'));
     const card = document.querySelector('.login-card');
     card.style.animation='none'; card.offsetHeight;
     card.style.animation='shake .4s ease';
-    return;
   }
-
-  btn.disabled=true;
-  btn.innerHTML='<span>⏳</span> جاري الدخول...';
-  saveSession(remember);
-
-  setTimeout(()=>{
-    showApp();
-    btn.disabled=false;
-    btn.innerHTML='<span>🔓</span> دخول';
-    updateAllEmpSelects();
-    renderDashboard();
-    startRealtimeSync();
-  }, 500);
 }
 
-function doLogout(){
-  clearSession();
+async function doLogout(){
+  await window._fbLogout();
   showLogin();
 }
 
@@ -1877,18 +1890,36 @@ function doLogout(){
 // ══════════════════════════════════════════════
 (async function(){
   document.getElementById('attDate').value = isoToday();
-  await loadFromFirebase();
 
-  if(checkSession()){
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('logoutBtn').style.display   = 'flex';
-    document.getElementById('backupBtn').style.display   = 'flex';
-    updateAllEmpSelects();
-    renderDashboard();
-    startRealtimeSync();
-  } else {
-    showLogin();
-  }
+  // انتظر حتى تتحقق Firebase من حالة الجلسة
+  const waitForAuth = () => new Promise(resolve => {
+    // نحاول كل 100ms حتى تكون _fbAuthReady جاهزة (module يُحمَّل بشكل async)
+    const check = () => {
+      if(window._fbAuthReady){
+        window._fbAuthReady(async (user) => {
+          if(user){
+            // المستخدم مسجّل دخوله - حمّل البيانات وأظهر التطبيق
+            await loadFromFirebase();
+            showApp();
+            updateAllEmpSelects();
+            renderDashboard();
+            startRealtimeSync();
+            const btn = document.getElementById('loginBtn');
+            if(btn){ btn.disabled=false; btn.innerHTML='<span>🔓</span> دخول'; }
+          } else {
+            // لا يوجد مستخدم - أظهر شاشة الدخول
+            showLogin();
+          }
+        });
+        resolve();
+      } else {
+        setTimeout(check, 100);
+      }
+    };
+    check();
+  });
+
+  await waitForAuth();
 })();
 </script>
 </body>
