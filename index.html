@@ -597,6 +597,7 @@ td{padding:.6rem .75rem;vertical-align:middle}
     <button class="tab" id="rt-violations" onclick="switchRepTab('violations')">التأخير</button>
     <button class="tab" id="rt-absences" onclick="switchRepTab('absences')">الغياب</button>
     <button class="tab" id="rt-employee" onclick="switchRepTab('employee')">موظف</button>
+    <button class="tab" id="rt-salary" onclick="switchRepTab('salary')">💰 رواتب</button>
   </div>
 
   <!-- Monthly -->
@@ -650,6 +651,57 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <button class="btn btn-excel btn-sm" style="align-self:flex-end" onclick="exportEmpExcel()">📥</button>
     </div>
     <div id="empRepOut"></div>
+  </div>
+
+  <!-- Salary -->
+  <div id="rtab-salary" style="display:none">
+    <div class="filter-row">
+      <div class="fg" style="flex:0 0 85px"><label>السنة</label><input type="number" id="sal-year" style="min-width:0"></div>
+      <div class="fg"><label>الشهر</label>
+        <select id="sal-month">
+          <option value="1">يناير</option><option value="2">فبراير</option>
+          <option value="3">مارس</option><option value="4">أبريل</option>
+          <option value="5">مايو</option><option value="6">يونيو</option>
+          <option value="7">يوليو</option><option value="8">أغسطس</option>
+          <option value="9">سبتمبر</option><option value="10">أكتوبر</option>
+          <option value="11">نوفمبر</option><option value="12">ديسمبر</option>
+        </select></div>
+      <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="buildSalaryReport()">عرض</button>
+      <button class="btn btn-excel btn-sm" style="align-self:flex-end" onclick="exportSalaryExcel()">📥</button>
+    </div>
+
+    <div class="card" style="margin-bottom:.85rem">
+      <div class="card-hd"><h3>⚙️ إعدادات الخصم</h3></div>
+      <div class="card-body">
+        <div class="fgrid">
+          <div class="fg">
+            <label>أيام العمل بالشهر</label>
+            <input type="number" id="sal-work-days" value="26" min="1" max="31">
+          </div>
+          <div class="fg">
+            <label>خصم الغياب</label>
+            <select id="sal-abs-mode">
+              <option value="daily">يومي (راتب÷أيام)</option>
+              <option value="none">بدون خصم</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>خصم التأخير</label>
+            <select id="sal-late-mode">
+              <option value="minute">دقيقة بدقيقة</option>
+              <option value="none">بدون خصم</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>مقسوم خصم الدقيقة</label>
+            <input type="number" id="sal-late-div" value="7800" min="1" title="خصم دقيقة = (راتب × دقائق) ÷ هذا الرقم">
+          </div>
+        </div>
+        <p class="hint" style="margin-top:.5rem">خصم يوم = الراتب ÷ أيام العمل &nbsp;|&nbsp; خصم دقيقة = (الراتب × الدقائق) ÷ المقسوم</p>
+      </div>
+    </div>
+
+    <div id="salaryOut"></div>
   </div>
 </div>
 
@@ -1480,10 +1532,11 @@ function initReports(){
 }
 
 function switchRepTab(t){
-  ['monthly','violations','absences','employee'].forEach(x=>{
+  ['monthly','violations','absences','employee','salary'].forEach(x=>{
     document.getElementById('rtab-'+x).style.display=x===t?'':'none';
     document.getElementById('rt-'+x).classList.toggle('active',x===t);
   });
+  if(t==='salary') initSalaryTab();
 }
 
 function buildMonthly(){
@@ -1729,6 +1782,133 @@ function confirmDel(type,key,msg){
     if(currentPage==='dashboard') renderDashboard();
   };
   openModal('delOverlay');
+}
+
+// ══════════════════════════════════════════════
+//  SALARY — حساب الرواتب الشهرية
+// ══════════════════════════════════════════════
+function initSalaryTab(){
+  const now=new Date();
+  document.getElementById('sal-year').value=now.getFullYear();
+  document.getElementById('sal-month').value=now.getMonth()+1;
+}
+
+function getWorkingDaysInMonth(year,month){
+  const days=[];
+  const d=new Date(year,month-1,1);
+  while(d.getMonth()===month-1){
+    const iso=d.toISOString().split('T')[0];
+    if(new Date(iso+'T12:00:00').getDay()!==5) days.push(iso);
+    d.setDate(d.getDate()+1);
+  }
+  return days;
+}
+
+function calcEmployeeSalary(emp,year,month,workDays){
+  const baseSalary=parseFloat(emp.salary)||0;
+  const absMode=document.getElementById('sal-abs-mode').value;
+  const lateMode=document.getElementById('sal-late-mode').value;
+  const totalWorkDays=parseInt(document.getElementById('sal-work-days').value)||26;
+  const lateDiv=parseInt(document.getElementById('sal-late-div').value)||7800;
+
+  let presentDays=0,absentDays=0,excuseDays=0,vacDays=0,sickDays=0,totalLateMins=0;
+
+  workDays.forEach(dayStr=>{
+    const r=getRecord(emp.id,dayStr);
+    if(!r){absentDays++;return;}
+    switch(r.status){
+      case'present': presentDays++; totalLateMins+=calcLateMins(r.checkIn,emp.startTime,emp.graceMins); break;
+      case'absent':  absentDays++;  break;
+      case'excuse':  excuseDays++;  break;
+      case'vacation':vacDays++;     break;
+      case'sick':    sickDays++;    break;
+      default:       presentDays++;
+    }
+  });
+
+  const dailyRate=baseSalary/totalWorkDays;
+  const absDeduction=absMode==='daily'?absentDays*dailyRate:0;
+  const lateDeduction=lateMode==='minute'?(baseSalary*totalLateMins)/lateDiv:0;
+  const totalDeduction=absDeduction+lateDeduction;
+  const netSalary=Math.max(0,baseSalary-totalDeduction);
+
+  return{emp,baseSalary,presentDays,absentDays,excuseDays,vacDays,sickDays,
+    totalLateMins,absDeduction,lateDeduction,totalDeduction,netSalary};
+}
+
+function buildSalaryReport(){
+  const year=parseInt(document.getElementById('sal-year').value);
+  const month=parseInt(document.getElementById('sal-month').value);
+  if(!year||!month){toast('⚠️ اختر السنة والشهر','err');return;}
+
+  const workDays=getWorkingDaysInMonth(year,month);
+  const results=employees.filter(e=>e.active!==false).map(emp=>calcEmployeeSalary(emp,year,month,workDays));
+
+  const totalBase=results.reduce((s,r)=>s+r.baseSalary,0);
+  const totalNet=results.reduce((s,r)=>s+r.netSalary,0);
+  const totalDed=results.reduce((s,r)=>s+r.totalDeduction,0);
+
+  let html=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+      <h3 style="font-weight:800;color:var(--navy);font-size:.95rem">💰 رواتب ${monthName(month)} ${year}</h3>
+      <span class="badge bg-blue">${workDays.length} يوم عمل</span>
+    </div>
+    <div class="rep-sum" style="grid-template-columns:repeat(3,1fr)">
+      <div class="rep-box rb-blue"><div class="rv" style="color:var(--blue)">${Math.round(totalBase).toLocaleString('ar')}</div><div class="rl">إجمالي الرواتب</div></div>
+      <div class="rep-box rb-red"><div class="rv" style="color:var(--red)">${Math.round(totalDed).toLocaleString('ar')}</div><div class="rl">إجمالي الخصومات</div></div>
+      <div class="rep-box rb-green"><div class="rv" style="color:var(--green)">${Math.round(totalNet).toLocaleString('ar')}</div><div class="rl">صافي المدفوع</div></div>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>الموظف</th><th>الراتب</th><th>حضور</th><th>غياب</th><th>تأخير</th><th>خصومات</th><th>الصافي</th></tr></thead>
+          <tbody>`;
+
+  results.forEach(r=>{
+    const pct=r.baseSalary>0?Math.round((r.netSalary/r.baseSalary)*100):100;
+    const pctColor=pct>=95?'var(--green)':pct>=80?'var(--amber)':'var(--red)';
+    html+=`<tr>
+      <td><div class="td-name">
+        <div class="av" style="background:${getAvatarColor(r.emp.name)}">${initials(r.emp.name)}</div>
+        <span style="font-size:.8rem;font-weight:700">${r.emp.name}</span>
+      </div></td>
+      <td class="mono">${r.baseSalary>0?r.baseSalary.toLocaleString():'—'}</td>
+      <td><span class="badge bg-green">${r.presentDays}</span></td>
+      <td><span class="badge ${r.absentDays>0?'bg-red':'bg-gray'}">${r.absentDays}</span></td>
+      <td class="mono" style="color:${r.totalLateMins>0?'var(--amber)':'var(--muted)'}">
+        ${r.totalLateMins>0?r.totalLateMins+'د':'—'}
+      </td>
+      <td class="mono" style="color:var(--red)">
+        ${r.totalDeduction>0?'−'+Math.round(r.totalDeduction).toLocaleString():'—'}
+      </td>
+      <td>
+        <div>
+          <span class="mono" style="font-weight:800;color:var(--green)">${Math.round(r.netSalary).toLocaleString()}</span>
+          <div class="prog-wrap" style="margin-top:3px">
+            <div class="prog-fill" style="width:${pct}%;background:${pctColor}"></div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table></div></div>`;
+  document.getElementById('salaryOut').innerHTML=html;
+}
+
+function exportSalaryExcel(){
+  const year=parseInt(document.getElementById('sal-year').value);
+  const month=parseInt(document.getElementById('sal-month').value);
+  if(!year||!month){toast('⚠️ اختر السنة والشهر أولاً','err');return;}
+
+  const workDays=getWorkingDaysInMonth(year,month);
+  const results=employees.filter(e=>e.active!==false).map(emp=>calcEmployeeSalary(emp,year,month,workDays));
+
+  const header=['#','الموظف','الراتب الأساسي','أيام الحضور','أيام الغياب','إجازات/عذر','دقائق التأخير','خصم الغياب','خصم التأخير','إجمالي الخصومات','الراتب الصافي'];
+  const data=results.map((r,i)=>[i+1,r.emp.name,r.baseSalary,r.presentDays,r.absentDays,r.vacDays+r.excuseDays+r.sickDays,r.totalLateMins,Math.round(r.absDeduction),Math.round(r.lateDeduction),Math.round(r.totalDeduction),Math.round(r.netSalary)]);
+  data.push(['','الإجمالي',results.reduce((s,r)=>s+r.baseSalary,0),'','','','',Math.round(results.reduce((s,r)=>s+r.absDeduction,0)),Math.round(results.reduce((s,r)=>s+r.lateDeduction,0)),Math.round(results.reduce((s,r)=>s+r.totalDeduction,0)),Math.round(results.reduce((s,r)=>s+r.netSalary,0))]);
+
+  dlXL(makeWB([{name:`رواتب ${monthName(month)} ${year}`,data,h:header,cw:[4,20,14,12,12,12,14,14,14,16,14]}]),`رواتب_${monthName(month)}_${year}`);
 }
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open')); });
