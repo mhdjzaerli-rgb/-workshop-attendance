@@ -675,8 +675,8 @@ td{padding:.6rem .75rem;vertical-align:middle}
       <div class="card-body">
         <div class="fgrid">
           <div class="fg">
-            <label>أيام العمل بالشهر</label>
-            <input type="number" id="sal-work-days" value="26" min="1" max="31">
+            <label>ساعات العمل اليومية</label>
+            <input type="number" id="sal-work-hours" value="8" min="1" max="12" step="0.5">
           </div>
           <div class="fg">
             <label>خصم الغياب</label>
@@ -692,12 +692,8 @@ td{padding:.6rem .75rem;vertical-align:middle}
               <option value="none">بدون خصم</option>
             </select>
           </div>
-          <div class="fg">
-            <label>مقسوم خصم الدقيقة</label>
-            <input type="number" id="sal-late-div" value="7800" min="1" title="خصم دقيقة = (راتب × دقائق) ÷ هذا الرقم">
-          </div>
         </div>
-        <p class="hint" style="margin-top:.5rem">خصم يوم = الراتب ÷ أيام العمل &nbsp;|&nbsp; خصم دقيقة = (الراتب × الدقائق) ÷ المقسوم</p>
+        <p class="hint" style="margin-top:.5rem">أيام العمل تُحسب تلقائياً من الشهر المختار (مع استثناء الجمعة) &nbsp;|&nbsp; خصم دقيقة = (راتب × دقائق) ÷ (أيام × ساعات × 60)</p>
       </div>
     </div>
 
@@ -1808,8 +1804,10 @@ function calcEmployeeSalary(emp,year,month,workDays){
   const baseSalary=parseFloat(emp.salary)||0;
   const absMode=document.getElementById('sal-abs-mode').value;
   const lateMode=document.getElementById('sal-late-mode').value;
-  const totalWorkDays=parseInt(document.getElementById('sal-work-days').value)||26;
-  const lateDiv=parseInt(document.getElementById('sal-late-div').value)||7800;
+  const totalWorkDays=workDays.length; // أيام العمل الفعلية (بدون الجمعة) — للغياب فقط
+  const allDaysInMonth=new Date(year,month,0).getDate(); // كل أيام الشهر — لقسمة الراتب
+  const workHours=parseFloat(document.getElementById('sal-work-hours').value)||8;
+  const lateDiv=totalWorkDays*workHours*60; // المقسوم = أيام العمل × ساعات × 60
 
   let presentDays=0,absentDays=0,excuseDays=0,vacDays=0,sickDays=0,totalLateMins=0;
 
@@ -1826,7 +1824,7 @@ function calcEmployeeSalary(emp,year,month,workDays){
     }
   });
 
-  const dailyRate=baseSalary/totalWorkDays;
+  const dailyRate=baseSalary/allDaysInMonth; // خصم اليوم = الراتب ÷ كل أيام الشهر
   const absDeduction=absMode==='daily'?absentDays*dailyRate:0;
   const lateDeduction=lateMode==='minute'?(baseSalary*totalLateMins)/lateDiv:0;
   const totalDeduction=absDeduction+lateDeduction;
@@ -1848,10 +1846,14 @@ function buildSalaryReport(){
   const totalNet=results.reduce((s,r)=>s+r.netSalary,0);
   const totalDed=results.reduce((s,r)=>s+r.totalDeduction,0);
 
+  const allDays=new Date(year,month,0).getDate();
   let html=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
       <h3 style="font-weight:800;color:var(--navy);font-size:.95rem">💰 رواتب ${monthName(month)} ${year}</h3>
-      <span class="badge bg-blue">${workDays.length} يوم عمل</span>
+      <div style="display:flex;gap:.4rem">
+        <span class="badge bg-blue">${allDays} يوم</span>
+        <span class="badge bg-gray">${workDays.length} عمل</span>
+      </div>
     </div>
     <div class="rep-sum" style="grid-template-columns:repeat(3,1fr)">
       <div class="rep-box rb-blue"><div class="rv" style="color:var(--blue)">${Math.round(totalBase).toLocaleString('ar')}</div><div class="rl">إجمالي الرواتب</div></div>
